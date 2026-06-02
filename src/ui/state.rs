@@ -1,6 +1,9 @@
 use crate::models::task::Task;
 use std::time::{Duration, Instant};
 
+#[cfg(test)]
+use crate::models::task::TaskState;
+
 /// Application modes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AppMode {
