@@ -16,17 +16,20 @@ pub struct ProcessInfo {
 pub enum ProcessState {
     Running,
     Sleeping,
+    Stopped,
+    DiskSleep,
     Zombie,
     Dead,
+    Idle,
     Unknown,
 }
 
-/// Provider trait for process information — allows mocking in tests.
+/// Provider trait for process information.
 pub trait ProcessProvider: Send + Sync {
     fn get_process_info(&self, pid: u32) -> anyhow::Result<Option<ProcessInfo>>;
 }
 
-/// Default implementation using sysinfo + procfs on Linux.
+/// Default implementation using /proc on Linux.
 pub struct SystemProcessProvider;
 
 impl ProcessProvider for SystemProcessProvider {
@@ -35,11 +38,10 @@ impl ProcessProvider for SystemProcessProvider {
     }
 }
 
-/// Get process info using sysinfo with procfs fallback on Linux.
+/// Get process info from /proc on Linux.
 pub fn get_process_info(pid: u32) -> anyhow::Result<Option<ProcessInfo>> {
     use std::fs;
 
-    // Try /proc/<pid>/stat and /proc/<pid>/cmdline first (Linux)
     let cmdline_path = format!("/proc/{}/cmdline", pid);
     let stat_path = format!("/proc/{}/stat", pid);
 
@@ -48,6 +50,9 @@ pub fn get_process_info(pid: u32) -> anyhow::Result<Option<ProcessInfo>> {
     }
 
     let cmdline = fs::read_to_string(&cmdline_path).unwrap_or_default();
+    if cmdline.len() > 4096 {
+        return Ok(None);
+    }
     if cmdline.is_empty() {
         return Ok(None);
     }
@@ -61,12 +66,26 @@ pub fn get_process_info(pid: u32) -> anyhow::Result<Option<ProcessInfo>> {
     let command = parts.first().cloned().unwrap_or_default();
     let args = parts.iter().skip(1).cloned().collect::<Vec<_>>();
 
-    // Parse stat for start time (field 22) and state (field 3)
     let (start_time, state) = if let Ok(stat) = fs::read_to_string(&stat_path) {
         let fields: Vec<&str> = stat.split_whitespace().collect();
-        let state = fields.get(2).map(|s| parse_state(*s)).unwrap_or(ProcessState::Unknown);
-        let start_time = fields.get(21).and_then(|s| s.parse::<u64>().ok());
-        (start_time, state)
+        let state = fields
+            .get(2)
+            .map(|s| parse_state(*s))
+            .unwrap_or(ProcessState::Unknown);
+
+        let starttime_ticks: u64 = fields.get(21).and_then(|s| s.parse().ok()).unwrap_or(0);
+        let clk_tck: u64 = get_clk_tck();
+        let starttime_secs = starttime_ticks / clk_tck;
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        let uptime = read_uptime_secs().unwrap_or(0);
+        let start_time = now.saturating_sub(uptime.saturating_sub(starttime_secs));
+
+        (Some(start_time), state)
     } else {
         (None, ProcessState::Unknown)
     };
@@ -84,10 +103,25 @@ fn parse_state(code: &str) -> ProcessState {
     match code {
         "R" => ProcessState::Running,
         "S" => ProcessState::Sleeping,
+        "D" => ProcessState::DiskSleep,
         "Z" => ProcessState::Zombie,
+        "T" | "t" => ProcessState::Stopped,
         "X" | "x" => ProcessState::Dead,
+        "I" => ProcessState::Idle,
         _ => ProcessState::Unknown,
     }
+}
+
+fn get_clk_tck() -> u64 {
+    let ticks = unsafe { libc::sysconf(libc::_SC_CLK_TCK) };
+    if ticks > 0 { ticks as u64 } else { 100 }
+}
+
+fn read_uptime_secs() -> Option<u64> {
+    use std::fs;
+    let uptime = fs::read_to_string("/proc/uptime").ok()?;
+    let secs: f64 = uptime.split_whitespace().next()?.parse().ok()?;
+    Some(secs as u64)
 }
 
 /// Format a command + args as a single string, truncated if needed.
@@ -115,8 +149,11 @@ mod tests {
     fn test_parse_state() {
         assert_eq!(parse_state("R"), ProcessState::Running);
         assert_eq!(parse_state("S"), ProcessState::Sleeping);
+        assert_eq!(parse_state("D"), ProcessState::DiskSleep);
         assert_eq!(parse_state("Z"), ProcessState::Zombie);
         assert_eq!(parse_state("X"), ProcessState::Dead);
+        assert_eq!(parse_state("T"), ProcessState::Stopped);
+        assert_eq!(parse_state("I"), ProcessState::Idle);
         assert_eq!(parse_state("?"), ProcessState::Unknown);
     }
 
@@ -162,5 +199,27 @@ mod tests {
     fn test_get_process_info_nonexistent() {
         let result = get_process_info(999999).unwrap();
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_get_process_info_current_pid() {
+        let result = get_process_info(1);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_clk_tck() {
+        let ticks = get_clk_tck();
+        assert!(ticks > 0);
+        assert!(ticks <= 1000);
+    }
+
+    #[test]
+    fn test_read_uptime() {
+        let uptime = read_uptime_secs();
+        if cfg!(target_os = "linux") {
+            assert!(uptime.is_some());
+            assert!(uptime.unwrap() > 0);
+        }
     }
 }

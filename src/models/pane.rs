@@ -2,11 +2,15 @@ use serde::Serialize;
 
 /// Unique identifier for a tmux pane.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
-pub struct PaneId(pub String);
+pub struct PaneId(String);
 
 impl PaneId {
     pub fn new(id: impl Into<String>) -> Self {
         Self(id.into())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
     }
 }
 
@@ -56,5 +60,12 @@ mod tests {
             pane_active: true,
         };
         assert_eq!(pane.locator(), "main:2.1");
+    }
+
+    #[test]
+    fn test_pane_id_as_str() {
+        let id = PaneId::new("%5");
+        assert_eq!(id.as_str(), "%5");
+        assert_eq!(format!("{}", id), "%5");
     }
 }

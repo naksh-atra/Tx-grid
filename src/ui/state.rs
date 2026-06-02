@@ -205,7 +205,7 @@ impl App {
 
     pub fn prompt_kill(&mut self) {
         if let Some(task) = self.selected_task() {
-            self.confirm_action = Some(ConfirmAction::Kill(task.pane.pane_id.0.clone()));
+            self.confirm_action = Some(ConfirmAction::Kill(task.pane.pane_id.as_str().to_string()));
             self.mode = AppMode::Confirm;
         }
     }
