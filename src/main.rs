@@ -289,7 +289,19 @@ fn handle_key(
                 app.set_status("rename cancelled");
             }
             crossterm::event::KeyCode::Enter => {
-                app.execute_rename();
+                if let Some(task) = app.selected_task() {
+                    let new_name = app.get_rename_text().trim().to_string();
+                    if !new_name.is_empty() {
+                        match tmux_service::select_pane_by_id(&task.pane.pane_id, &new_name) {
+                            Ok(_) => {
+                                app.set_status(format!("renamed to {}", new_name));
+                            }
+                            Err(e) => {
+                                app.set_status(format!("rename failed: {}", e));
+                            }
+                        }
+                    }
+                }
                 app.exit_rename_mode();
             }
             crossterm::event::KeyCode::Char(c) => {
