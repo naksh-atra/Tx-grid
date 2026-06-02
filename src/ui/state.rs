@@ -1,6 +1,8 @@
 use crate::models::task::Task;
-use crate::models::task::TaskState;
 use std::time::{Duration, Instant};
+
+#[cfg(test)]
+use crate::models::task::TaskState;
 
 /// Application modes.
 #[derive(Debug, Clone, PartialEq, Eq)]
