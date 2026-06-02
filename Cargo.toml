@@ -1,0 +1,31 @@
+[package]
+name = "tmux-taskgrid"
+version = "0.1.0"
+edition = "2021"
+authors = ["naksh-atra <nakshatra.rajput@outlook.com>"]
+description = "A Rust-based tmux plugin that opens a popup task grid for managing long-running commands and AI agents"
+license = "MIT"
+repository = "https://github.com/naksh-atra/Tx-grid"
+keywords = ["tmux", "tui", "cli", "terminal", "developer-tools"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
+ratatui = "0.28"
+crossterm = "0.28"
+anyhow = "1.0"
+thiserror = "1.0"
+log = "0.4"
+env_logger = "0.11"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = "0.4"
+clap = { version = "4.5", features = ["derive"] }
+sysinfo = "0.31"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+procfs = "0.16"
+
+[profile.release]
+opt-level = 2
+lto = true
+strip = true
