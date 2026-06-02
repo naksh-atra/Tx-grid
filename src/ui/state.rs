@@ -1,5 +1,4 @@
 use crate::models::task::Task;
-use crate::models::task::TaskState;
 use std::time::{Duration, Instant};
 
 /// Application modes.
@@ -223,6 +222,7 @@ impl App {
 
 #[cfg(test)]
 mod tests {
+    use crate::models::task::TaskState;
     use super::*;
     use crate::models::pane::{PaneId, PaneInfo};
     use crate::models::process::{ProcessInfo, ProcessState};
