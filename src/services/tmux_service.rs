@@ -7,6 +7,7 @@ use std::process::Command;
 pub fn tmux_command(args: &[&str]) -> anyhow::Result<String> {
     let output = Command::new("tmux")
         .args(args)
+        .stderr(std::process::Stdio::null())
         .output()
         .context("failed to execute tmux command")?;
 
@@ -51,6 +52,7 @@ pub fn current_pane_id() -> Option<String> {
 pub fn get_tmux_option(name: &str, default: &str) -> String {
     let output = Command::new("tmux")
         .args(["show-options", "-gqv", name])
+        .stderr(std::process::Stdio::null())
         .output();
 
     match output {
@@ -68,25 +70,31 @@ pub fn get_tmux_option(name: &str, default: &str) -> String {
 
 /// Select (jump to) a specific pane.
 pub fn select_pane(pane_id: &PaneId) -> anyhow::Result<()> {
-    tmux_command(&["select-pane", "-t", &pane_id.0])?;
+    tmux_command(&["select-pane", "-t", pane_id.as_str()])?;
     Ok(())
 }
 
 /// Kill a specific pane.
 pub fn kill_pane(pane_id: &PaneId) -> anyhow::Result<()> {
-    tmux_command(&["kill-pane", "-t", &pane_id.0])?;
+    tmux_command(&["kill-pane", "-t", pane_id.as_str()])?;
     Ok(())
 }
 
 /// Send keys to a specific pane.
 pub fn send_keys(pane_id: &PaneId, keys: &str) -> anyhow::Result<()> {
-    tmux_command(&["send-keys", "-t", &pane_id.0, keys])?;
+    tmux_command(&["send-keys", "-t", pane_id.as_str(), keys])?;
     Ok(())
 }
 
 /// Get the current command running in a pane.
 pub fn pane_current_command(pane_id: &PaneId) -> Option<String> {
-    let output = tmux_command(&["display-message", "-p", "-t", &pane_id.0, "#{pane_current_command}"]);
+    let output = tmux_command(&[
+        "display-message",
+        "-p",
+        "-t",
+        pane_id.as_str(),
+        "#{pane_current_command}",
+    ]);
     output.ok().map(|s| s.trim().to_string())
 }
 
@@ -100,7 +108,6 @@ pub fn check_tmux() -> anyhow::Result<(String, bool)> {
     let version_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
     debug!("tmux version: {}", version_str);
 
-    // Parse version number
     let version_supported = version_str
         .split_whitespace()
         .nth(1)
@@ -145,7 +152,7 @@ mod tests {
         assert_eq!(pane.window_index, 1);
         assert_eq!(pane.window_name, "editor");
         assert_eq!(pane.pane_index, 0);
-        assert_eq!(pane.pane_id.0, "%5");
+        assert_eq!(pane.pane_id.as_str(), "%5");
         assert_eq!(pane.pane_pid, 12345);
         assert!(pane.pane_active);
     }

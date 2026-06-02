@@ -20,7 +20,6 @@ impl TaskService {
         }
     }
 
-    /// Discover all tasks from tmux panes.
     pub fn discover_tasks(&self, current_pane_id: Option<&str>) -> anyhow::Result<Vec<Task>> {
         let panes = crate::services::tmux_service::list_panes()?;
         info!("Discovered {} panes", panes.len());
