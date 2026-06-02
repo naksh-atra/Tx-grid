@@ -46,10 +46,10 @@ bind-key C-t run-shell "tmux-taskgrid"
 Add to your `~/.tmux.conf`:
 
 ```
-bind-key -T prefix t display-popup -w 80% -h 60% -E "tmux-taskgrid"
+bind-key -T prefix P display-popup -w 80% -h 60% -E "tmux-taskgrid"
 ```
 
-Then press `Prefix + t` (default prefix is `Ctrl+B`) to open the task grid popup.
+Then press `Prefix + Shift+p` (default prefix is `Ctrl+B`) to open the task grid popup.
 
 Make sure `tmux-taskgrid` is on your PATH, or use the full path:
 ```
