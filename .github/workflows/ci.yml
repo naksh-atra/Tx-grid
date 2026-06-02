@@ -49,3 +49,12 @@ jobs:
         with:
           name: tmux-taskgrid-linux-x64
           path: target/release/tmux-taskgrid
+
+  audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo install cargo-audit
+      - run: cargo audit

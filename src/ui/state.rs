@@ -170,8 +170,10 @@ impl App {
     }
 
     pub fn append_filter(&mut self, c: char) {
-        self.filter_text.push(c);
-        self.apply_filter_and_sort();
+        if self.filter_text.len() < 256 {
+            self.filter_text.push(c);
+            self.apply_filter_and_sort();
+        }
     }
 
     pub fn backspace_filter(&mut self) {
