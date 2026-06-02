@@ -143,15 +143,26 @@ fn draw_footer(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
             ])
         }
         AppMode::Confirm => {
+            Line::from(vec![Span::styled(
+                " Confirm kill? (y/n) ",
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            )])
+        }
+        AppMode::Rename => {
             Line::from(vec![
                 Span::styled(
-                    " Confirm kill? (y/n) ",
-                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                    " Rename: ",
+                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                ),
+                Span::raw(&app.rename_text),
+                Span::styled(
+                    " | Esc: cancel | Enter: apply",
+                    Style::default().fg(Color::DarkGray),
                 ),
             ])
         }
         AppMode::Normal => {
-            let help = " j/k: move | Enter: jump | x: kill | r: restart | /: filter | s: sort | q: quit ";
+            let help = " j/k: move | Enter: jump | x: kill | r: rename | /: filter | s: sort | q: quit ";
             let status = app
                 .status_message
                 .as_ref()
