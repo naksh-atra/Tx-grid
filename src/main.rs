@@ -262,7 +262,7 @@ fn handle_key(
                 app.prompt_kill();
             }
             crossterm::event::KeyCode::Char('r') => {
-                restart_task(app);
+                app.enter_rename_mode();
             }
             _ => {}
         },
@@ -280,6 +280,23 @@ fn handle_key(
             }
             crossterm::event::KeyCode::Backspace => {
                 app.backspace_filter();
+            }
+            _ => {}
+        },
+        AppMode::Rename => match code {
+            crossterm::event::KeyCode::Esc => {
+                app.exit_rename_mode();
+                app.set_status("rename cancelled");
+            }
+            crossterm::event::KeyCode::Enter => {
+                app.execute_rename();
+                app.exit_rename_mode();
+            }
+            crossterm::event::KeyCode::Char(c) => {
+                app.append_rename(c);
+            }
+            crossterm::event::KeyCode::Backspace => {
+                app.backspace_rename();
             }
             _ => {}
         },
@@ -321,33 +338,4 @@ fn refresh_tasks(app: &mut App, service: &TaskService, current_pane: Option<&str
         }
     }
 }
-
-fn restart_task(app: &mut App) {
-    if let Some(task) = app.selected_task() {
-        let pane_id = &task.pane.pane_id;
-        // Send C-c, then try to re-run the command
-        if let Err(e) = tmux_service::send_keys(pane_id, "C-c") {
-            app.set_status(format!("restart failed: {}", e));
-            return;
-        }
-
-        std::thread::sleep(std::time::Duration::from_millis(200));
-
-        // For now, just send "Up + Enter" to repeat the last shell command
-        if let Err(e) = tmux_service::send_keys(pane_id, "Up") {
-            app.set_status(format!("restart failed: {}", e));
-            return;
-        }
-
-        std::thread::sleep(std::time::Duration::from_millis(100));
-
-        if let Err(e) = tmux_service::send_keys(pane_id, "Enter") {
-            app.set_status(format!("restart failed: {}", e));
-            return;
-        }
-
-        app.set_status(format!("restarted {}", task.pane.locator()));
-    }
-}
-
 

@@ -86,6 +86,12 @@ pub fn send_keys(pane_id: &PaneId, keys: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Set the title of a specific pane.
+pub fn select_pane_by_id(pane_id: &PaneId, title: &str) -> anyhow::Result<()> {
+    tmux_command(&["select-pane", "-t", pane_id.as_str(), "-T", title])?;
+    Ok(())
+}
+
 /// Get the current command running in a pane.
 pub fn pane_current_command(pane_id: &PaneId) -> Option<String> {
     let output = tmux_command(&[

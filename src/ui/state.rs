@@ -7,6 +7,7 @@ pub enum AppMode {
     Normal,
     Filter,
     Confirm,
+    Rename,
 }
 
 /// Sort order for the task list.
@@ -37,6 +38,7 @@ pub struct App {
     pub status_message: Option<String>,
     pub scroll_offset: usize,
     pub confirm_action: Option<ConfirmAction>,
+    pub rename_text: String,
     pub last_refresh: Instant,
     pub refresh_interval: Duration,
 }
@@ -58,6 +60,7 @@ impl App {
             status_message: None,
             scroll_offset: 0,
             confirm_action: None,
+            rename_text: String::new(),
             last_refresh: Instant::now(),
             refresh_interval: Duration::from_secs(5),
         }
@@ -179,6 +182,32 @@ impl App {
     pub fn clear_filter(&mut self) {
         self.filter_text.clear();
         self.apply_filter_and_sort();
+    }
+
+    pub fn enter_rename_mode(&mut self) {
+        if let Some(task) = self.selected_task() {
+            self.rename_text = task.pane.pane_id.as_str().to_string();
+            self.mode = AppMode::Rename;
+        }
+    }
+
+    pub fn exit_rename_mode(&mut self) {
+        self.rename_text.clear();
+        self.mode = AppMode::Normal;
+    }
+
+    pub fn append_rename(&mut self, c: char) {
+        if self.rename_text.len() < 64 {
+            self.rename_text.push(c);
+        }
+    }
+
+    pub fn backspace_rename(&mut self) {
+        self.rename_text.pop();
+    }
+
+    pub fn get_rename_text(&self) -> &str {
+        &self.rename_text
     }
 
     pub fn cycle_sort(&mut self) {
