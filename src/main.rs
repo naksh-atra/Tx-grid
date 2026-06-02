@@ -1,6 +1,5 @@
 mod cli;
 mod config;
-mod errors;
 mod logging;
 mod models;
 mod services;
