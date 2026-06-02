@@ -1,5 +1,4 @@
 use crate::models::task::Task;
-use crate::models::task::TaskState;
 use std::time::{Duration, Instant};
 
 /// Application modes.
