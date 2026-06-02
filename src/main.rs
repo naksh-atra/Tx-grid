@@ -1,6 +1,10 @@
+#![allow(dead_code, unused_imports, unused_variables)]
+
+// NOTE: dead_code allowed for planned API surface not yet fully wired.
+// These will be removed as features are completed in v0.2.0.
+
 mod cli;
 mod config;
-mod errors;
 mod logging;
 mod models;
 mod services;
