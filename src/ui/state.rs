@@ -1,5 +1,4 @@
 use crate::models::task::Task;
-use crate::models::task::TaskState;
 use std::time::{Duration, Instant};
 
 /// Application modes.
@@ -205,7 +204,7 @@ impl App {
 
     pub fn prompt_kill(&mut self) {
         if let Some(task) = self.selected_task() {
-            self.confirm_action = Some(ConfirmAction::Kill(task.pane.pane_id.0.clone()));
+            self.confirm_action = Some(ConfirmAction::Kill(task.pane.pane_id.as_str().to_string()));
             self.mode = AppMode::Confirm;
         }
     }
@@ -223,6 +222,7 @@ impl App {
 
 #[cfg(test)]
 mod tests {
+    use crate::models::task::TaskState;
     use super::*;
     use crate::models::pane::{PaneId, PaneInfo};
     use crate::models::process::{ProcessInfo, ProcessState};

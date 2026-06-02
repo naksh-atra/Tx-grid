@@ -93,7 +93,7 @@ pub fn build_tasks(
         .iter()
         .filter(|p| {
             // Exclude the current taskgrid popup pane
-            current_pane_id.map_or(true, |id| &p.pane_id.0 != id)
+            current_pane_id.map_or(true, |id| p.pane_id.as_str() != id)
         })
         .map(|pane| {
             let process = process_provider.get_process_info(pane.pane_pid).ok().flatten();

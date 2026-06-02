@@ -1,6 +1,10 @@
+#![allow(dead_code, unused_imports, unused_variables)]
+
+// NOTE: dead_code allowed for planned API surface not yet fully wired.
+// These will be removed as features are completed in v0.2.0.
+
 mod cli;
 mod config;
-mod errors;
 mod logging;
 mod models;
 mod services;
@@ -246,7 +250,7 @@ fn handle_key(
             crossterm::event::KeyCode::Enter => {
                 if let Some(pane_id) = app.selected_task().map(|t| t.pane.pane_id.clone()) {
                     // Jump to pane — close the popup first
-                    app.set_status(format!("jumped to {}", pane_id.0));
+                    app.set_status(format!("jumped to {}", pane_id.as_str()));
                     // We need to break out and let tmux handle the jump
                     disable_raw_mode().ok();
                     tmux_service::select_pane(&pane_id).ok();
