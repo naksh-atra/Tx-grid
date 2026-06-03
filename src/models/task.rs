@@ -55,7 +55,7 @@ pub fn classify(pane: &PaneInfo, process: Option<&ProcessInfo>) -> Task {
                 // AND recent activity. Otherwise it's idle.
                 if is_idle_command(&p.command) {
                     TaskState::Idle
-                } else if pane.activity_at.map_or(false, |t| {
+                } else if pane.activity_at.is_some_and(|t| {
                     let now = std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap_or_default()
@@ -108,7 +108,7 @@ pub fn build_tasks(
         .iter()
         .filter(|p| {
             // Exclude the current taskgrid popup pane
-            current_pane_id.map_or(true, |id| p.pane_id.as_str() != id)
+            current_pane_id.is_none_or(|id| p.pane_id.as_str() != id)
         })
         .map(|pane| {
             let process = process_provider
