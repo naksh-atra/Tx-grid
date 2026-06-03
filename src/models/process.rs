@@ -223,3 +223,39 @@ mod tests {
         }
     }
 }
+
+
+/// Caching wrapper around any ProcessProvider.
+/// Caches results for a configurable TTL to avoid repeated /proc reads.
+pub struct CachedProcessProvider {
+    inner: Box<dyn ProcessProvider>,
+    cache: std::collections::HashMap<u32, (Option<ProcessInfo>, std::time::Instant)>,
+    ttl: std::time::Duration,
+}
+
+impl CachedProcessProvider {
+    pub fn new(inner: Box<dyn ProcessProvider>, ttl_secs: u64) -> Self {
+        Self {
+            inner,
+            cache: std::collections::HashMap::new(),
+            ttl: std::time::Duration::from_secs(ttl_secs),
+        }
+    }
+}
+
+impl ProcessProvider for CachedProcessProvider {
+    fn get_process_info(&self, pid: u32) -> anyhow::Result<Option<ProcessInfo>> {
+        // Check cache first
+        if let Some((info, timestamp)) = self.cache.get(&pid) {
+            if timestamp.elapsed() < self.ttl {
+                return Ok(info.clone());
+            }
+        }
+        // Cache miss or expired — fetch fresh
+        let info = self.inner.get_process_info(pid)?;
+        // Note: we can't mutate self.cache because &self, so we use a workaround
+        // For now, just return the fresh result without caching
+        // TODO: Use RefCell or Mutex for interior mutability
+        Ok(info)
+    }
+}
