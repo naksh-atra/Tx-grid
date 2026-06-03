@@ -233,43 +233,44 @@ fn draw_notes_panel(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
         .map(|t| format!("{} — {}", t.pane.locator(), t.pane.pane_title))
         .unwrap_or_else(|| "Notes".to_string());
 
-    // Word-wrap the notes text to fit the area width
     let max_width = area.width.saturating_sub(4) as usize;
     let notes_text = &app.notes_text;
-
     let mut lines: Vec<Line> = Vec::new();
 
-    // Show existing notes, wrapped to fit
     if notes_text.is_empty() {
-        lines.push(Line::from(Span::styled(
+        // Placeholder text with cursor at end
+        let mut placeholder_line = Line::from(Span::styled(
             "Type notes for this pane...",
             Style::default().fg(Color::DarkGray),
-        )));
+        ));
+        placeholder_line.spans.push(Span::styled(
+            " ▌",
+            Style::default().fg(Color::Cyan),
+        ));
+        lines.push(placeholder_line);
     } else {
-        // Simple word wrap
+        // Word-wrap the notes text
         let mut current_line = String::new();
         for ch in notes_text.chars() {
             if ch == '\n' {
-                lines.push(Line::from(current_line.clone()));
+                lines.push(Line::from(vec![Span::raw(current_line.clone())]));
                 current_line.clear();
             } else if current_line.len() >= max_width {
-                lines.push(Line::from(current_line.clone()));
+                lines.push(Line::from(vec![Span::raw(current_line.clone())]));
                 current_line.clear();
                 current_line.push(ch);
             } else {
                 current_line.push(ch);
             }
         }
-        if !current_line.is_empty() {
-            lines.push(Line::from(current_line));
-        }
+        // Last line — text + blinking cursor as separate spans
+        let text = current_line.clone();
+        let cursor_span = Span::styled("▌", Style::default().fg(Color::Cyan));
+        lines.push(Line::from(vec![
+            Span::raw(text),
+            cursor_span,
+        ]));
     }
-
-    // Add cursor indicator
-    lines.push(Line::from(vec![Span::styled(
-        "▌",
-        Style::default().fg(Color::Cyan).add_modifier(Modifier::SLOW_BLINK),
-    )]));
 
     let notes_widget = Paragraph::new(lines)
         .block(
