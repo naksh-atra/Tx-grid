@@ -7,24 +7,24 @@ use ratatui::{
     Frame,
 };
 
-/// Render the entire application UI.
+// Render the entire application UI.
 pub fn draw(f: &mut Frame, app: &App) {
-    let notes_active = app.mode == AppMode::Notes;
-    let chunks = crate::ui::layout::main_layout(f, notes_active);
+let notes_active = app.mode == AppMode::Notes;
+let chunks = crate::ui::layout::main_layout(f, notes_active);
 
-    draw_header(f, chunks[0], app);
-    draw_task_list(f, chunks[1], app, notes_active);
+draw_header(f, chunks[0], app);
+draw_task_list(f, chunks[1], app, notes_active);
 
-    if notes_active && chunks.len() > 2 && chunks[2].width > 0 {
-        draw_notes_panel(f, chunks[2], app);
-    }
+if notes_active && chunks.len() > 2 && chunks[2].width > 0 {
+    draw_notes_panel(f, chunks[2], app);
+}
 
-    draw_footer(f, chunks[chunks.len() - 1], app);
+draw_footer(f, chunks[chunks.len() - 1], app);
 
-    // Draw confirmation dialog if needed
-    if app.mode == AppMode::Confirm {
-        draw_confirm_dialog(f, app);
-    }
+// Draw confirmation dialog if needed
+if app.mode == AppMode::Confirm {
+    draw_confirm_dialog(f, app);
+}
 }
 
 fn draw_header(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
