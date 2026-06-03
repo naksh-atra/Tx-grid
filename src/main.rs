@@ -269,6 +269,9 @@ fn handle_key(
             crossterm::event::KeyCode::Char('r') => {
                 app.enter_rename_mode();
             }
+            crossterm::event::KeyCode::Char('n') => {
+                app.enter_notes_mode();
+            }
             _ => {}
         },
         AppMode::Filter => match code {
