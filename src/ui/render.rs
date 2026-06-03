@@ -85,7 +85,7 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_a
     let mut last_window: Option<String> = None;
     let mut display_idx: usize = 0;
 
-    for task_idx in &app.filtered_indices {
+    for (display_idx, task_idx) in app.filtered_indices.iter().enumerate() {
         let task = &app.tasks[*task_idx];
         let window_key = format!("{}:{}", task.pane.session_name, task.pane.window_index);
 
@@ -151,7 +151,7 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_a
         } else {
             let runtime_str = task
                 .runtime
-                .map(|r| format_runtime(r))
+                .map(format_runtime)
                 .unwrap_or_else(|| "—".to_string());
 
             Row::new(vec![
@@ -180,7 +180,6 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_a
         };
 
         rows.push(styled_row);
-        display_idx += 1;
     }
 
     // Use flexible constraints so window headers can expand
@@ -370,7 +369,6 @@ fn centered_rect(width: u16, height: u16, area: ratatui::layout::Rect) -> ratatu
         y,
         width: width.min(area.width),
         height: height.min(area.height),
-        ..area
     }
 }
 

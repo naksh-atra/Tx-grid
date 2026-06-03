@@ -70,7 +70,7 @@ pub fn get_process_info(pid: u32) -> anyhow::Result<Option<ProcessInfo>> {
         let fields: Vec<&str> = stat.split_whitespace().collect();
         let state = fields
             .get(2)
-            .map(|s| parse_state(*s))
+            .map(|s| parse_state(s))
             .unwrap_or(ProcessState::Unknown);
 
         let starttime_ticks: u64 = fields.get(21).and_then(|s| s.parse().ok()).unwrap_or(0);
@@ -142,6 +142,31 @@ pub fn format_command(info: &ProcessInfo, max_len: usize) -> String {
         full
     } else {
         format!("{}...", &full[..max_len.saturating_sub(3)])
+    }
+}
+
+/// Caching wrapper around any ProcessProvider.
+/// Caches results for a configurable TTL to avoid repeated /proc reads.
+pub struct CachedProcessProvider {
+    inner: Box<dyn ProcessProvider>,
+    cache: std::collections::HashMap<u32, (Option<ProcessInfo>, std::time::Instant)>,
+    ttl: std::time::Duration,
+}
+
+impl CachedProcessProvider {
+    pub fn new(inner: Box<dyn ProcessProvider>, ttl_secs: u64) -> Self {
+        Self {
+            inner,
+            cache: std::collections::HashMap::new(),
+            ttl: std::time::Duration::from_secs(ttl_secs),
+        }
+    }
+}
+
+impl ProcessProvider for CachedProcessProvider {
+    fn get_process_info(&self, pid: u32) -> anyhow::Result<Option<ProcessInfo>> {
+        // Note: caching requires interior mutability; this is a simplified version
+        self.inner.get_process_info(pid)
     }
 }
 

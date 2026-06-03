@@ -77,7 +77,7 @@ fn run_non_interactive(
         for task in &tasks {
             let runtime = task
                 .runtime
-                .map(|r| crate::utils::format::format_duration(r))
+                .map(crate::utils::format::format_duration)
                 .unwrap_or_else(|| "—".to_string());
             println!(
                 "  [{:8}] {:16} {:30} {:>10}",
