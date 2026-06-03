@@ -80,49 +80,69 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_a
             .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
     };
 
-    let rows: Vec<Row> = app
-        .filtered_indices
-        .iter()
-        .enumerate()
-        .map(|(display_idx, task_idx)| {
-            let task = &app.tasks[*task_idx];
-            let is_selected = display_idx == app.selection;
+    // Build rows with window group headers
+    let mut rows: Vec<Row> = Vec::new();
+    let mut last_window: Option<String> = None;
+    let mut display_idx: usize = 0;
 
-            let state_style = match task.state {
-                TaskState::Running => Style::default().fg(Color::Green),
-                TaskState::Exited => Style::default().fg(Color::Red),
-                TaskState::Idle => Style::default().fg(Color::DarkGray),
-                TaskState::Unknown => Style::default().fg(Color::Yellow),
-            };
+    for task_idx in &app.filtered_indices {
+        let task = &app.tasks[*task_idx];
+        let window_key = format!("{}:{}", task.pane.session_name, task.pane.window_index);
 
-            let pane_name = if task.pane.pane_title.is_empty() {
-                task.pane.locator()
+        // Insert a window header row when we encounter a new window
+        if last_window.as_ref() != Some(&window_key) {
+            let window_label = if task.pane.window_name.is_empty() {
+                format!("▸ {}:{}", task.pane.session_name, task.pane.window_index)
             } else {
-                task.pane.pane_title.clone()
+                format!("▸ {}:{} ({})", task.pane.session_name, task.pane.window_index, task.pane.window_name)
             };
+            rows.push(
+                Row::new(vec![Cell::from(window_label)])
+                    .style(Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM)),
+            );
+            last_window = Some(window_key);
+        }
 
-            let row = if notes_active {
-                Row::new(vec![
-                    Cell::from(format!("{}", display_idx + 1)),
-                    Cell::from(pane_name),
-                    Cell::from(task.command_display.clone()),
-                ])
-            } else {
-                let runtime_str = task
-                    .runtime
-                    .map(|r| format_runtime(r))
-                    .unwrap_or_else(|| "—".to_string());
+        let is_selected = display_idx == app.selection;
 
-                Row::new(vec![
-                    Cell::from(format!("{}", display_idx + 1)),
-                    Cell::from(pane_name),
-                    Cell::from(task.command_display.clone()),
-                    Cell::from(runtime_str),
-                    Cell::from(task.state.as_str()).style(state_style),
-                ])
-            };
+        let state_style = match task.state {
+            TaskState::Running => Style::default().fg(Color::Green),
+            TaskState::Exited => Style::default().fg(Color::Red),
+            TaskState::Idle => Style::default().fg(Color::DarkGray),
+            TaskState::Unknown => Style::default().fg(Color::Yellow),
+        };
 
-            if is_selected {
+        let pane_name = if task.pane.pane_title.is_empty() {
+            task.pane.locator()
+        } else {
+            task.pane.pane_title.clone()
+        };
+
+        let row = if notes_active {
+            Row::new(vec![
+                Cell::from(format!("{}", display_idx + 1)),
+                Cell::from(pane_name),
+                Cell::from(task.command_display.clone()),
+            ])
+        } else {
+            let runtime_str = task
+                .runtime
+                .map(|r| format_runtime(r))
+                .unwrap_or_else(|| "—".to_string());
+
+            Row::new(vec![
+                Cell::from(format!("{}", display_idx + 1)),
+                Cell::from(pane_name),
+                Cell::from(task.command_display.clone()),
+                Cell::from(runtime_str),
+                Cell::from(task.state.as_str()).style(state_style),
+            ])
+        };
+
+            let styled_row = if task.pane.window_name.starts_with("▸") {
+                // Window header row — already styled above
+                row
+            } else if is_selected {
                 let bg = if app.mode == AppMode::Rename {
                     Color::Yellow
                 } else if app.mode == AppMode::Notes {
@@ -133,9 +153,11 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_a
                 row.style(Style::default().bg(bg).add_modifier(Modifier::BOLD))
             } else {
                 row
-            }
-        })
-        .collect();
+            };
+
+        rows.push(styled_row);
+        display_idx += 1;
+    }
 
     let table = if notes_active {
         Table::new(
