@@ -96,10 +96,23 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_a
             } else {
                 format!("▸ {}:{} ({})", task.pane.session_name, task.pane.window_index, task.pane.window_name)
             };
-            rows.push(
-                Row::new(vec![Cell::from(window_label)])
-                    .style(Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM)),
-            );
+            // Full-width header: put label in first cell, empty in rest
+            // The table column constraints will handle width
+            if notes_active {
+                rows.push(Row::new(vec![
+                    Cell::from(window_label).style(Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM)),
+                    Cell::from(""),
+                    Cell::from(""),
+                ]));
+            } else {
+                rows.push(Row::new(vec![
+                    Cell::from(window_label).style(Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM)),
+                    Cell::from(""),
+                    Cell::from(""),
+                    Cell::from(""),
+                    Cell::from(""),
+                ]));
+            }
             last_window = Some(window_key);
         }
 
@@ -159,24 +172,25 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_a
         display_idx += 1;
     }
 
+    // Use flexible constraints so window headers can expand
     let table = if notes_active {
         Table::new(
             rows,
             [
-                ratatui::layout::Constraint::Length(4),
-                ratatui::layout::Constraint::Length(12),
-                ratatui::layout::Constraint::Min(15),
+                ratatui::layout::Constraint::Percentage(30),
+                ratatui::layout::Constraint::Percentage(20),
+                ratatui::layout::Constraint::Percentage(50),
             ],
         )
     } else {
         Table::new(
             rows,
             [
-                ratatui::layout::Constraint::Length(4),
-                ratatui::layout::Constraint::Length(16),
-                ratatui::layout::Constraint::Min(20),
-                ratatui::layout::Constraint::Length(10),
-                ratatui::layout::Constraint::Length(8),
+                ratatui::layout::Constraint::Percentage(25),
+                ratatui::layout::Constraint::Percentage(15),
+                ratatui::layout::Constraint::Percentage(30),
+                ratatui::layout::Constraint::Percentage(15),
+                ratatui::layout::Constraint::Percentage(15),
             ],
         )
     }
