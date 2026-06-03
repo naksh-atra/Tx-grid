@@ -339,6 +339,7 @@ mod tests {
                 pane_pid: 123,
                 pane_active: false,
                 activity_at: None,
+                pane_title: String::new(),
             },
             process: Some(ProcessInfo {
                 pid: 123,

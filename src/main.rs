@@ -325,6 +325,10 @@ fn handle_key(
                             &new_name,
                         ]) {
                             Ok(_) => {
+                                // Update in-memory so grid reflects the change immediately
+                                if let Some(idx) = app.filtered_indices.get(app.selection) {
+                                    app.tasks[*idx].pane.pane_title = new_name.clone();
+                                }
                                 app.set_status(format!("renamed to {}", new_name));
                             }
                             Err(e) => {

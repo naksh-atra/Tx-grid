@@ -21,7 +21,7 @@ pub fn tmux_command(args: &[&str]) -> anyhow::Result<String> {
 
 /// List all panes across all sessions.
 pub fn list_panes() -> anyhow::Result<Vec<PaneInfo>> {
-    let format = "#{session_name}\t#{session_id}\t#{window_index}\t#{window_name}\t#{pane_index}\t#{pane_id}\t#{pane_pid}\t#{pane_active}\t#{pane_activity}";
+    let format = "#{session_name}\t#{session_id}\t#{window_index}\t#{window_name}\t#{pane_index}\t#{pane_id}\t#{pane_pid}\t#{pane_active}\t#{pane_activity}\t#{pane_title}";
     let output = tmux_command(&["list-panes", "-a", "-F", format])?;
 
     let mut panes = Vec::new();
@@ -138,6 +138,7 @@ fn parse_pane_line(line: &str) -> Option<PaneInfo> {
         pane_pid: parts[6].parse().ok()?,
         pane_active: parts[7] == "1",
         activity_at: parts[8].parse().ok(),
+        pane_title: parts.get(9).unwrap_or(&"").to_string(),
     })
 }
 
@@ -147,7 +148,7 @@ mod tests {
 
     #[test]
     fn test_parse_pane_line_valid() {
-        let line = "main\t$0\t1\teditor\t0\t%5\t12345\t1\t0";
+        let line = "main\t$0\t1\teditor\t0\t%5\t12345\t1\t0\ttest-title";
         let pane = parse_pane_line(line).unwrap();
         assert_eq!(pane.session_name, "main");
         assert_eq!(pane.window_index, 1);
@@ -160,7 +161,7 @@ mod tests {
 
     #[test]
     fn test_parse_pane_line_inactive() {
-        let line = "main\t$0\t1\teditor\t0\t%5\t12345\t0\t0";
+        let line = "main\t$0\t1\teditor\t0\t%5\t12345\t0\t0\t";
         let pane = parse_pane_line(line).unwrap();
         assert!(!pane.pane_active);
     }
