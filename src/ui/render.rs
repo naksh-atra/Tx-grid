@@ -98,11 +98,14 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
             ]);
 
             if is_selected {
-                row.style(
-                    Style::default()
-                        .bg(Color::DarkGray)
-                        .add_modifier(Modifier::BOLD),
-                )
+                let bg = if app.mode == AppMode::Rename {
+                    Color::Yellow
+                } else if app.mode == AppMode::Notes {
+                    Color::Cyan
+                } else {
+                    Color::DarkGray
+                };
+                row.style(Style::default().bg(bg).add_modifier(Modifier::BOLD))
             } else {
                 row
             }
@@ -143,15 +146,32 @@ fn draw_footer(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
             ])
         }
         AppMode::Confirm => {
+            Line::from(vec![Span::styled(
+                " Confirm kill? (y/n) ",
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            )])
+        }
+        AppMode::Rename => {
             Line::from(vec![
-                Span::styled(
-                    " Confirm kill? (y/n) ",
-                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
-                ),
+                Span::styled(" Rename: ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::raw(&app.rename_text),
+                Span::styled(" | Esc: cancel | Enter: apply", Style::default().fg(Color::DarkGray)),
+            ])
+        }
+        AppMode::Notes => {
+            let display = if app.notes_text.len() > 40 {
+                format!("{}...", &app.notes_text[..40])
+            } else {
+                app.notes_text.clone()
+            };
+            Line::from(vec![
+                Span::styled(" Notes: ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::raw(display),
+                Span::styled(" | Esc: save & quit", Style::default().fg(Color::DarkGray)),
             ])
         }
         AppMode::Normal => {
-            let help = " j/k: move | Enter: jump | x: kill | r: restart | /: filter | s: sort | q: quit ";
+            let help = " j/k: move | Enter: jump | x: kill | r: rename | n: notes | /: filter | s: sort | q: quit ";
             let status = app
                 .status_message
                 .as_ref()
@@ -166,71 +186,4 @@ fn draw_footer(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
 
     let footer = Paragraph::new(content).block(Block::default().borders(Borders::TOP));
     f.render_widget(footer, area);
-}
-
-fn draw_confirm_dialog(f: &mut Frame, app: &App) {
-    let area = centered_rect(50, 3, f.area());
-    f.render_widget(Clear, area);
-
-    let task_info = app
-        .selected_task()
-        .map(|t| format!("Kill pane {} ({})?", t.pane.locator(), t.command_display))
-        .unwrap_or_else(|| "Kill selected pane?".to_string());
-
-    let dialog = Paragraph::new(vec![
-        Line::from(Span::styled(
-            task_info,
-            Style::default().fg(Color::White),
-        )),
-        Line::from(Span::styled(
-            " y: yes  n: cancel",
-            Style::default().fg(Color::DarkGray),
-        )),
-    ])
-    .block(
-        Block::default()
-            .title(" Confirm ")
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Red)),
-    );
-
-    f.render_widget(dialog, area);
-}
-
-fn centered_rect(width: u16, height: u16, area: ratatui::layout::Rect) -> ratatui::layout::Rect {
-    let x = area.x + (area.width.saturating_sub(width)) / 2;
-    let y = area.y + (area.height.saturating_sub(height)) / 2;
-    ratatui::layout::Rect {
-        x,
-        y,
-        width: width.min(area.width),
-        height: height.min(area.height),
-        ..area
-    }
-}
-
-/// Format runtime in human-readable form.
-fn format_runtime(seconds: u64) -> String {
-    if seconds < 60 {
-        format!("{}s", seconds)
-    } else if seconds < 3600 {
-        format!("{}m {}s", seconds / 60, seconds % 60)
-    } else if seconds < 86400 {
-        format!("{}h {}m", seconds / 3600, (seconds % 3600) / 60)
-    } else {
-        format!("{}d {}h", seconds / 86400, (seconds % 86400) / 3600)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_format_runtime() {
-        assert_eq!(format_runtime(45), "45s");
-        assert_eq!(format_runtime(125), "2m 5s");
-        assert_eq!(format_runtime(3661), "1h 1m");
-        assert_eq!(format_runtime(90061), "1d 1h");
-    }
 }
