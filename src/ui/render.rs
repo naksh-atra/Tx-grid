@@ -241,10 +241,10 @@ fn draw_notes_panel(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
 
     // Show existing notes, wrapped to fit
     if notes_text.is_empty() {
-        lines.push(Line::from(vec![Span::styled(
+        lines.push(Line::from(Span::styled(
             "Type notes for this pane...",
             Style::default().fg(Color::DarkGray),
-        )]);
+        )));
     } else {
         // Simple word wrap
         let mut current_line = String::new();
