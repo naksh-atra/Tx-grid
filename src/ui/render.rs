@@ -9,11 +9,17 @@ use ratatui::{
 
 /// Render the entire application UI.
 pub fn draw(f: &mut Frame, app: &App) {
-    let chunks = crate::ui::layout::main_layout(f);
+    let notes_active = app.mode == AppMode::Notes;
+    let chunks = crate::ui::layout::main_layout(f, notes_active);
 
     draw_header(f, chunks[0], app);
-    draw_task_list(f, chunks[1], app);
-    draw_footer(f, chunks[2], app);
+    draw_task_list(f, chunks[1], app, notes_active);
+
+    if notes_active && chunks.len() > 2 && chunks[2].width > 0 {
+        draw_notes_panel(f, chunks[2], app);
+    }
+
+    draw_footer(f, chunks[chunks.len() - 1], app);
 
     // Draw confirmation dialog if needed
     if app.mode == AppMode::Confirm {
@@ -52,7 +58,7 @@ fn draw_header(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
     f.render_widget(header, area);
 }
 
-fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
+fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_active: bool) {
     if app.filtered_indices.is_empty() {
         let empty_msg = if app.tasks.is_empty() {
             "No panes found. Press q to quit."
@@ -66,8 +72,13 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
         return;
     }
 
-    let header = Row::new(vec!["#", "Pane", "Command", "Runtime", "State"])
-        .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD));
+    let header = if notes_active {
+        Row::new(vec!["#", "Pane", "Command"])
+            .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+    } else {
+        Row::new(vec!["#", "Pane", "Command", "Runtime", "State"])
+            .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+    };
 
     let rows: Vec<Row> = app
         .filtered_indices
@@ -84,22 +95,32 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
                 TaskState::Unknown => Style::default().fg(Color::Yellow),
             };
 
-            let runtime_str = task
-                .runtime
-                .map(|r| format_runtime(r))
-                .unwrap_or_else(|| "—".to_string());
+            let pane_name = if task.pane.pane_title.is_empty() {
+                task.pane.locator()
+            } else {
+                task.pane.pane_title.clone()
+            };
 
-            let row = Row::new(vec![
-                Cell::from(format!("{}", display_idx + 1)),
-                Cell::from(if task.pane.pane_title.is_empty() {
-                    task.pane.locator()
-                } else {
-                    task.pane.pane_title.clone()
-                }),
-                Cell::from(task.command_display.clone()),
-                Cell::from(runtime_str),
-                Cell::from(task.state.as_str()).style(state_style),
-            ]);
+            let row = if notes_active {
+                Row::new(vec![
+                    Cell::from(format!("{}", display_idx + 1)),
+                    Cell::from(pane_name),
+                    Cell::from(task.command_display.clone()),
+                ])
+            } else {
+                let runtime_str = task
+                    .runtime
+                    .map(|r| format_runtime(r))
+                    .unwrap_or_else(|| "—".to_string());
+
+                Row::new(vec![
+                    Cell::from(format!("{}", display_idx + 1)),
+                    Cell::from(pane_name),
+                    Cell::from(task.command_display.clone()),
+                    Cell::from(runtime_str),
+                    Cell::from(task.state.as_str()).style(state_style),
+                ])
+            };
 
             if is_selected {
                 let bg = if app.mode == AppMode::Rename {
@@ -116,16 +137,27 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
         })
         .collect();
 
-    let table = Table::new(
-        rows,
-        [
-            ratatui::layout::Constraint::Length(4),
-            ratatui::layout::Constraint::Length(16),
-            ratatui::layout::Constraint::Min(20),
-            ratatui::layout::Constraint::Length(10),
-            ratatui::layout::Constraint::Length(8),
-        ],
-    )
+    let table = if notes_active {
+        Table::new(
+            rows,
+            [
+                ratatui::layout::Constraint::Length(4),
+                ratatui::layout::Constraint::Length(12),
+                ratatui::layout::Constraint::Min(15),
+            ],
+        )
+    } else {
+        Table::new(
+            rows,
+            [
+                ratatui::layout::Constraint::Length(4),
+                ratatui::layout::Constraint::Length(16),
+                ratatui::layout::Constraint::Min(20),
+                ratatui::layout::Constraint::Length(10),
+                ratatui::layout::Constraint::Length(8),
+            ],
+        )
+    }
     .header(header)
     .block(Block::default().borders(Borders::NONE))
     .highlight_style(
@@ -133,6 +165,7 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
             .bg(Color::DarkGray)
             .add_modifier(Modifier::BOLD),
     );
+
 
     f.render_widget(table, area);
 }
@@ -192,6 +225,62 @@ fn draw_footer(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
 
     let footer = Paragraph::new(content).block(Block::default().borders(Borders::TOP));
     f.render_widget(footer, area);
+}
+
+fn draw_notes_panel(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
+    let pane_label = app
+        .selected_task()
+        .map(|t| format!("{} — {}", t.pane.locator(), t.pane.pane_title))
+        .unwrap_or_else(|| "Notes".to_string());
+
+    // Word-wrap the notes text to fit the area width
+    let max_width = area.width.saturating_sub(4) as usize;
+    let notes_text = &app.notes_text;
+
+    let mut lines: Vec<Line> = Vec::new();
+
+    // Show existing notes, wrapped to fit
+    if notes_text.is_empty() {
+        lines.push(Line::from(vec![Span::styled(
+            "Type notes for this pane...",
+            Style::default().fg(Color::DarkGray),
+        )]);
+    } else {
+        // Simple word wrap
+        let mut current_line = String::new();
+        for ch in notes_text.chars() {
+            if ch == '\n' {
+                lines.push(Line::from(current_line.clone()));
+                current_line.clear();
+            } else if current_line.len() >= max_width {
+                lines.push(Line::from(current_line.clone()));
+                current_line.clear();
+                current_line.push(ch);
+            } else {
+                current_line.push(ch);
+            }
+        }
+        if !current_line.is_empty() {
+            lines.push(Line::from(current_line));
+        }
+    }
+
+    // Add cursor indicator
+    lines.push(Line::from(vec![Span::styled(
+        "▌",
+        Style::default().fg(Color::Cyan).add_modifier(Modifier::SLOW_BLINK),
+    )]));
+
+    let notes_widget = Paragraph::new(lines)
+        .block(
+            Block::default()
+                .title(format!(" Notes: {} ", pane_label))
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan)),
+        )
+        .wrap(ratatui::widgets::Wrap { trim: true });
+
+    f.render_widget(notes_widget, area);
 }
 
 fn draw_confirm_dialog(f: &mut Frame, app: &App) {
