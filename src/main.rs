@@ -214,7 +214,7 @@ fn handle_key(
     app: &mut App,
     code: crossterm::event::KeyCode,
     modifiers: crossterm::event::KeyModifiers,
-    service: &TaskService,
+    service: &mut TaskService,
     current_pane: Option<&str>,
 ) -> anyhow::Result<bool> {
     match app.mode {
@@ -295,7 +295,7 @@ fn handle_key(
                     match tmux_service::kill_pane(&pid) {
                         Ok(()) => {
                             app.set_status("pane killed");
-                            refresh_tasks(app, service, current_pane);
+                            refresh_tasks(app, &mut *service, current_pane);
                         }
                         Err(e) => {
                             app.set_status(format!("kill failed: {}", e));
@@ -305,6 +305,57 @@ fn handle_key(
             }
             crossterm::event::KeyCode::Char('n') | crossterm::event::KeyCode::Esc => {
                 app.cancel_confirm();
+            }
+            _ => {}
+        },
+        AppMode::Rename => match code {
+            crossterm::event::KeyCode::Esc => {
+                app.exit_rename_mode();
+                app.set_status("rename cancelled");
+            }
+            crossterm::event::KeyCode::Enter => {
+                if let Some(task) = app.selected_task() {
+                    let new_name = app.get_rename_text().trim().to_string();
+                    if !new_name.is_empty() {
+                        match crate::services::tmux_service::tmux_command(&[
+                            "select-pane",
+                            "-t",
+                            task.pane.pane_id.as_str(),
+                            "-T",
+                            &new_name,
+                        ]) {
+                            Ok(_) => {
+                                app.set_status(format!("renamed to {}", new_name));
+                            }
+                            Err(e) => {
+                                app.set_status(format!("rename failed: {}", e));
+                            }
+                        }
+                    }
+                }
+                app.exit_rename_mode();
+            }
+            crossterm::event::KeyCode::Char(c) => {
+                app.append_rename(c);
+            }
+            crossterm::event::KeyCode::Backspace => {
+                app.backspace_rename();
+            }
+            _ => {}
+        },
+        AppMode::Notes => match code {
+            crossterm::event::KeyCode::Esc => {
+                app.exit_notes_mode();
+                app.set_status("notes saved");
+            }
+            crossterm::event::KeyCode::Enter => {
+                app.append_notes('\n');
+            }
+            crossterm::event::KeyCode::Char(c) => {
+                app.append_notes(c);
+            }
+            crossterm::event::KeyCode::Backspace => {
+                app.backspace_notes();
             }
             _ => {}
         },
