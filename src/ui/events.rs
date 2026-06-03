@@ -1,4 +1,4 @@
-use crossterm::event::{self, Event as CrosstermEvent, KeyCode, KeyModifiers, KeyEventKind};
+use crossterm::event::{self, Event as CrosstermEvent, KeyCode, KeyEventKind, KeyModifiers};
 use std::time::Duration;
 
 /// Application events.

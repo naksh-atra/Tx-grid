@@ -121,7 +121,9 @@ fn run_doctor() -> anyhow::Result<()> {
         .args(["display-popup", "-h"])
         .output()
     {
-        Ok(out) if out.status.success() || String::from_utf8_lossy(&out.stderr).contains("usage") => {
+        Ok(out)
+            if out.status.success() || String::from_utf8_lossy(&out.stderr).contains("usage") =>
+        {
             println!("yes [OK]");
         }
         _ => {
@@ -167,10 +169,7 @@ fn run_tui(service: &mut TaskService, current_pane: Option<&str>) -> anyhow::Res
 
     // Cleanup terminal
     disable_raw_mode().ok();
-    terminal
-        .backend_mut()
-        .execute(LeaveAlternateScreen)
-        .ok();
+    terminal.backend_mut().execute(LeaveAlternateScreen).ok();
     terminal.backend_mut().execute(cursor::Show).ok();
 
     result
@@ -384,5 +383,3 @@ fn refresh_tasks(app: &mut App, service: &mut TaskService, current_pane: Option<
         }
     }
 }
-
-

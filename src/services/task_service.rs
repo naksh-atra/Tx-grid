@@ -51,10 +51,13 @@ impl TaskService {
         info!("Built {} tasks", tasks.len());
 
         // Update cache
-        self.cache.insert(cache_key, CacheEntry {
-            tasks: tasks.clone(),
-            timestamp: Instant::now(),
-        });
+        self.cache.insert(
+            cache_key,
+            CacheEntry {
+                tasks: tasks.clone(),
+                timestamp: Instant::now(),
+            },
+        );
 
         Ok(tasks)
     }

@@ -34,6 +34,7 @@ if command -v cargo &>/dev/null; then
         exit 1
     fi
     TMP_DIR="$(mktemp -d)"
+    # shellcheck disable=SC2064
     trap "rm -rf $TMP_DIR" EXIT
     git clone --depth 1 "https://github.com/${REPO}.git" "$TMP_DIR"
     cd "$TMP_DIR"
@@ -55,6 +56,7 @@ else
 
     DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG}/tmux-taskgrid-${SUFFIX}"
     TMP_FILE="$(mktemp)"
+    # shellcheck disable=SC2064
     trap "rm -f $TMP_FILE" EXIT
 
     if ! curl -fsSL -o "$TMP_FILE" "$DOWNLOAD_URL"; then

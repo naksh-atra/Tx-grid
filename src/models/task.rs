@@ -34,9 +34,7 @@ pub struct Task {
 }
 
 /// Known idle/shell commands that indicate no meaningful work.
-const IDLE_COMMANDS: &[&str] = &[
-    "bash", "zsh", "fish", "sh", "dash", "csh", "tcsh",
-];
+const IDLE_COMMANDS: &[&str] = &["bash", "zsh", "fish", "sh", "dash", "csh", "tcsh"];
 
 /// Check if a command is a known shell (idle when no child processes).
 fn is_idle_command(cmd: &str) -> bool {
@@ -49,7 +47,9 @@ pub fn classify(pane: &PaneInfo, process: Option<&ProcessInfo>) -> Task {
     let state = match process {
         None => TaskState::Exited,
         Some(p) => match p.state {
-            super::process::ProcessState::Dead | super::process::ProcessState::Zombie => TaskState::Exited,
+            super::process::ProcessState::Dead | super::process::ProcessState::Zombie => {
+                TaskState::Exited
+            }
             super::process::ProcessState::Running | super::process::ProcessState::Sleeping => {
                 // A pane is only "running" if it has an active non-shell process
                 // AND recent activity. Otherwise it's idle.
@@ -111,7 +111,10 @@ pub fn build_tasks(
             current_pane_id.map_or(true, |id| p.pane_id.as_str() != id)
         })
         .map(|pane| {
-            let process = process_provider.get_process_info(pane.pane_pid).ok().flatten();
+            let process = process_provider
+                .get_process_info(pane.pane_pid)
+                .ok()
+                .flatten();
             classify(pane, process.as_ref())
         })
         .collect()
@@ -133,7 +136,12 @@ mod tests {
             pane_id: PaneId::new(format!("%{}", pid)),
             pane_pid: pid,
             pane_active: active,
-            activity_at: Some(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs()),
+            activity_at: Some(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+            ),
             pane_title: String::new(),
         }
     }
@@ -196,10 +204,7 @@ mod tests {
             }
         }
 
-        let panes = vec![
-            make_pane(0, true),
-            make_pane(1, false),
-        ];
+        let panes = vec![make_pane(0, true), make_pane(1, false)];
 
         let tasks = build_tasks(&panes, &MockProvider, Some("%0"));
         assert_eq!(tasks.len(), 1);

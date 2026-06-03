@@ -78,7 +78,11 @@ impl App {
                 }
                 let task = &self.tasks[*i];
                 task.command_display.to_lowercase().contains(&filter_lower)
-                    || task.pane.session_name.to_lowercase().contains(&filter_lower)
+                    || task
+                        .pane
+                        .session_name
+                        .to_lowercase()
+                        .contains(&filter_lower)
                     || task.pane.window_name.to_lowercase().contains(&filter_lower)
             })
             .collect();
@@ -414,9 +418,7 @@ mod tests {
 
     #[test]
     fn test_rename_mode() {
-        let tasks = vec![
-            make_task("%0", "main", 100, TaskState::Running),
-        ];
+        let tasks = vec![make_task("%0", "main", 100, TaskState::Running)];
         let mut app = App::new(tasks);
         assert_eq!(app.mode, AppMode::Normal);
         app.enter_rename_mode();
@@ -436,9 +438,7 @@ mod tests {
         if path.exists() {
             let _ = std::fs::remove_file(&path);
         }
-        let tasks = vec![
-            make_task("%0", "main", 100, TaskState::Running),
-        ];
+        let tasks = vec![make_task("%0", "main", 100, TaskState::Running)];
         let mut app = App::new(tasks);
         assert_eq!(app.mode, AppMode::Normal);
         app.enter_notes_mode();
@@ -456,4 +456,3 @@ mod tests {
         }
     }
 }
-

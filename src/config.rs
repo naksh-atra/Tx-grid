@@ -46,12 +46,9 @@ impl Config {
                 "1",
             ) == "1",
             refresh_interval: Duration::from_secs(
-                crate::services::tmux_service::get_tmux_option(
-                    "@taskgrid-refresh-interval",
-                    "5",
-                )
-                .parse()
-                .unwrap_or(5),
+                crate::services::tmux_service::get_tmux_option("@taskgrid-refresh-interval", "5")
+                    .parse()
+                    .unwrap_or(5),
             ),
         }
     }
