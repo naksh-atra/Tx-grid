@@ -7,18 +7,24 @@ use ratatui::{
     Frame,
 };
 
-/// Render the entire application UI.
+// Render the entire application UI.
 pub fn draw(f: &mut Frame, app: &App) {
-    let chunks = crate::ui::layout::main_layout(f);
+let notes_active = app.mode == AppMode::Notes;
+let chunks = crate::ui::layout::main_layout(f, notes_active);
 
-    draw_header(f, chunks[0], app);
-    draw_task_list(f, chunks[1], app);
-    draw_footer(f, chunks[2], app);
+draw_header(f, chunks[0], app);
+draw_task_list(f, chunks[1], app, notes_active);
 
-    // Draw confirmation dialog if needed
-    if app.mode == AppMode::Confirm {
-        draw_confirm_dialog(f, app);
-    }
+if notes_active && chunks.len() > 2 && chunks[2].width > 0 {
+    draw_notes_panel(f, chunks[2], app);
+}
+
+draw_footer(f, chunks[chunks.len() - 1], app);
+
+// Draw confirmation dialog if needed
+if app.mode == AppMode::Confirm {
+    draw_confirm_dialog(f, app);
+}
 }
 
 fn draw_header(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
@@ -52,7 +58,7 @@ fn draw_header(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
     f.render_widget(header, area);
 }
 
-fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
+fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_active: bool) {
     if app.filtered_indices.is_empty() {
         let empty_msg = if app.tasks.is_empty() {
             "No panes found. Press q to quit."
@@ -66,42 +72,90 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
         return;
     }
 
-    let header = Row::new(vec!["#", "Pane", "Command", "Runtime", "State"])
-        .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD));
+    let header = if notes_active {
+        Row::new(vec!["#", "Pane", "Command"])
+            .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+    } else {
+        Row::new(vec!["#", "Pane", "Command", "Runtime", "State"])
+            .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+    };
 
-    let rows: Vec<Row> = app
-        .filtered_indices
-        .iter()
-        .enumerate()
-        .map(|(display_idx, task_idx)| {
-            let task = &app.tasks[*task_idx];
-            let is_selected = display_idx == app.selection;
+    // Build rows with window group headers
+    let mut rows: Vec<Row> = Vec::new();
+    let mut last_window: Option<String> = None;
+    let mut display_idx: usize = 0;
 
-            let state_style = match task.state {
-                TaskState::Running => Style::default().fg(Color::Green),
-                TaskState::Exited => Style::default().fg(Color::Red),
-                TaskState::Idle => Style::default().fg(Color::DarkGray),
-                TaskState::Unknown => Style::default().fg(Color::Yellow),
+    for task_idx in &app.filtered_indices {
+        let task = &app.tasks[*task_idx];
+        let window_key = format!("{}:{}", task.pane.session_name, task.pane.window_index);
+
+        // Insert a window header row when we encounter a new window
+        if last_window.as_ref() != Some(&window_key) {
+            let window_label = if task.pane.window_name.is_empty() {
+                format!("▸ {}:{}", task.pane.session_name, task.pane.window_index)
+            } else {
+                format!("▸ {}:{} ({})", task.pane.session_name, task.pane.window_index, task.pane.window_name)
             };
+            // Full-width header: put label in first cell, empty in rest
+            // The table column constraints will handle width
+            if notes_active {
+                rows.push(Row::new(vec![
+                    Cell::from(window_label).style(Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM)),
+                    Cell::from(""),
+                    Cell::from(""),
+                ]));
+            } else {
+                rows.push(Row::new(vec![
+                    Cell::from(window_label).style(Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM)),
+                    Cell::from(""),
+                    Cell::from(""),
+                    Cell::from(""),
+                    Cell::from(""),
+                ]));
+            }
+            last_window = Some(window_key);
+        }
 
+        let is_selected = display_idx == app.selection;
+
+        let state_style = match task.state {
+            TaskState::Running => Style::default().fg(Color::Green),
+            TaskState::Exited => Style::default().fg(Color::Red),
+            TaskState::Idle => Style::default().fg(Color::DarkGray),
+            TaskState::Unknown => Style::default().fg(Color::Yellow),
+        };
+
+        let pane_name = if task.pane.pane_title.is_empty() {
+            task.pane.locator()
+        } else {
+            task.pane.pane_title.clone()
+        };
+
+        let row = if notes_active {
+            Row::new(vec![
+                Cell::from(format!("{}", display_idx + 1)),
+                Cell::from(pane_name),
+                Cell::from(task.command_display.clone()),
+            ])
+        } else {
             let runtime_str = task
                 .runtime
                 .map(|r| format_runtime(r))
                 .unwrap_or_else(|| "—".to_string());
 
-            let row = Row::new(vec![
+            Row::new(vec![
                 Cell::from(format!("{}", display_idx + 1)),
-                Cell::from(if task.pane.pane_title.is_empty() {
-                    task.pane.locator()
-                } else {
-                    task.pane.pane_title.clone()
-                }),
+                Cell::from(pane_name),
                 Cell::from(task.command_display.clone()),
                 Cell::from(runtime_str),
                 Cell::from(task.state.as_str()).style(state_style),
-            ]);
+            ])
+        };
 
-            if is_selected {
+            let styled_row = if task.pane.window_name.starts_with("▸") {
+                // Window header row — already styled above
+                row
+            } else if is_selected {
                 let bg = if app.mode == AppMode::Rename {
                     Color::Yellow
                 } else if app.mode == AppMode::Notes {
@@ -112,20 +166,34 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
                 row.style(Style::default().bg(bg).add_modifier(Modifier::BOLD))
             } else {
                 row
-            }
-        })
-        .collect();
+            };
 
-    let table = Table::new(
-        rows,
-        [
-            ratatui::layout::Constraint::Length(4),
-            ratatui::layout::Constraint::Length(16),
-            ratatui::layout::Constraint::Min(20),
-            ratatui::layout::Constraint::Length(10),
-            ratatui::layout::Constraint::Length(8),
-        ],
-    )
+        rows.push(styled_row);
+        display_idx += 1;
+    }
+
+    // Use flexible constraints so window headers can expand
+    let table = if notes_active {
+        Table::new(
+            rows,
+            [
+                ratatui::layout::Constraint::Percentage(30),
+                ratatui::layout::Constraint::Percentage(20),
+                ratatui::layout::Constraint::Percentage(50),
+            ],
+        )
+    } else {
+        Table::new(
+            rows,
+            [
+                ratatui::layout::Constraint::Percentage(25),
+                ratatui::layout::Constraint::Percentage(15),
+                ratatui::layout::Constraint::Percentage(30),
+                ratatui::layout::Constraint::Percentage(15),
+                ratatui::layout::Constraint::Percentage(15),
+            ],
+        )
+    }
     .header(header)
     .block(Block::default().borders(Borders::NONE))
     .highlight_style(
@@ -133,6 +201,7 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
             .bg(Color::DarkGray)
             .add_modifier(Modifier::BOLD),
     );
+
 
     f.render_widget(table, area);
 }
@@ -192,6 +261,63 @@ fn draw_footer(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
 
     let footer = Paragraph::new(content).block(Block::default().borders(Borders::TOP));
     f.render_widget(footer, area);
+}
+
+fn draw_notes_panel(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
+    let pane_label = app
+        .selected_task()
+        .map(|t| format!("{} — {}", t.pane.locator(), t.pane.pane_title))
+        .unwrap_or_else(|| "Notes".to_string());
+
+    let max_width = area.width.saturating_sub(4) as usize;
+    let notes_text = &app.notes_text;
+    let mut lines: Vec<Line> = Vec::new();
+
+    if notes_text.is_empty() {
+        // Placeholder text with cursor at end
+        let mut placeholder_line = Line::from(Span::styled(
+            "Type notes for this pane...",
+            Style::default().fg(Color::DarkGray),
+        ));
+        placeholder_line.spans.push(Span::styled(
+            " ▌",
+            Style::default().fg(Color::Cyan),
+        ));
+        lines.push(placeholder_line);
+    } else {
+        // Word-wrap the notes text
+        let mut current_line = String::new();
+        for ch in notes_text.chars() {
+            if ch == '\n' {
+                lines.push(Line::from(vec![Span::raw(current_line.clone())]));
+                current_line.clear();
+            } else if current_line.len() >= max_width {
+                lines.push(Line::from(vec![Span::raw(current_line.clone())]));
+                current_line.clear();
+                current_line.push(ch);
+            } else {
+                current_line.push(ch);
+            }
+        }
+        // Last line — text + blinking cursor as separate spans
+        let text = current_line.clone();
+        let cursor_span = Span::styled("▌", Style::default().fg(Color::Cyan));
+        lines.push(Line::from(vec![
+            Span::raw(text),
+            cursor_span,
+        ]));
+    }
+
+    let notes_widget = Paragraph::new(lines)
+        .block(
+            Block::default()
+                .title(format!(" Notes: {} ", pane_label))
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan)),
+        )
+        .wrap(ratatui::widgets::Wrap { trim: true });
+
+    f.render_widget(notes_widget, area);
 }
 
 fn draw_confirm_dialog(f: &mut Frame, app: &App) {
