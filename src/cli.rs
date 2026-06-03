@@ -3,7 +3,7 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(
     name = "tmux-taskgrid",
-    version = "0.1.0",
+    version = "0.1.1",
     about = "A tmux task grid for managing long-running commands and AI agents",
     long_about = None
 )]
