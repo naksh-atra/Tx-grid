@@ -31,6 +31,7 @@ pub struct PaneInfo {
     pub pane_id: PaneId,
     pub pane_pid: u32,
     pub pane_active: bool,
+    pub activity_at: Option<u64>, // unix timestamp of last activity
 }
 
 impl PaneInfo {
@@ -58,6 +59,7 @@ mod tests {
             pane_id: PaneId::new("%5"),
             pane_pid: 12345,
             pane_active: true,
+            activity_at: None,
         };
         assert_eq!(pane.locator(), "main:2.1");
     }

@@ -44,14 +44,14 @@ fn main() -> anyhow::Result<()> {
     // Verify tmux environment
     verify_tmux_env()?;
 
-    let task_service = TaskService::new();
+    let mut task_service = TaskService::new();
     let current_pane = tmux_service::current_pane_id();
 
     if args.check || args.json {
-        return run_non_interactive(&task_service, current_pane.as_deref(), args.json);
+        return run_non_interactive(&mut task_service, current_pane.as_deref(), args.json);
     }
 
-    run_tui(&task_service, current_pane.as_deref())
+    run_tui(&mut task_service, current_pane.as_deref())
 }
 
 fn verify_tmux_env() -> anyhow::Result<()> {
@@ -64,7 +64,7 @@ fn verify_tmux_env() -> anyhow::Result<()> {
 }
 
 fn run_non_interactive(
-    service: &TaskService,
+    service: &mut TaskService,
     current_pane: Option<&str>,
     as_json: bool,
 ) -> anyhow::Result<()> {
@@ -140,7 +140,7 @@ fn run_doctor() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run_tui(service: &TaskService, current_pane: Option<&str>) -> anyhow::Result<()> {
+fn run_tui(service: &mut TaskService, current_pane: Option<&str>) -> anyhow::Result<()> {
     let tasks = service
         .discover_tasks(current_pane)
         .context("initial task discovery failed")?;
@@ -179,7 +179,7 @@ fn run_tui(service: &TaskService, current_pane: Option<&str>) -> anyhow::Result<
 fn run_app_loop(
     terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
     app: &mut App,
-    service: &TaskService,
+    service: &mut TaskService,
     current_pane: Option<&str>,
 ) -> anyhow::Result<()> {
     let tick_rate = std::time::Duration::from_millis(250);
@@ -213,12 +213,17 @@ fn run_app_loop(
 fn handle_key(
     app: &mut App,
     code: crossterm::event::KeyCode,
-    _modifiers: crossterm::event::KeyModifiers,
+    modifiers: crossterm::event::KeyModifiers,
     service: &TaskService,
     current_pane: Option<&str>,
 ) -> anyhow::Result<bool> {
     match app.mode {
         AppMode::Normal => match code {
+            crossterm::event::KeyCode::Char('c')
+                if modifiers.contains(crossterm::event::KeyModifiers::CONTROL) =>
+            {
+                return Ok(true);
+            }
             crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
                 return Ok(true);
             }
@@ -308,7 +313,7 @@ fn handle_key(
     Ok(false)
 }
 
-fn refresh_tasks(app: &mut App, service: &TaskService, current_pane: Option<&str>) {
+fn refresh_tasks(app: &mut App, service: &mut TaskService, current_pane: Option<&str>) {
     match service.discover_tasks(current_pane) {
         Ok(tasks) => {
             app.tasks = tasks;

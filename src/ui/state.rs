@@ -218,6 +218,105 @@ impl App {
         self.mode = AppMode::Normal;
         self.confirm_action.take()
     }
+
+    pub fn enter_rename_mode(&mut self) {
+        if let Some(task) = self.selected_task() {
+            self.rename_text = task.pane.pane_id.as_str().to_string();
+            self.mode = AppMode::Rename;
+        }
+    }
+
+    pub fn exit_rename_mode(&mut self) {
+        self.rename_text.clear();
+        self.mode = AppMode::Normal;
+    }
+
+    pub fn append_rename(&mut self, c: char) {
+        if self.rename_text.len() < 64 {
+            self.rename_text.push(c);
+        }
+    }
+
+    pub fn backspace_rename(&mut self) {
+        self.rename_text.pop();
+    }
+
+    pub fn get_rename_text(&self) -> &str {
+        &self.rename_text
+    }
+
+    pub fn enter_notes_mode(&mut self) {
+        if let Some(task) = self.selected_task() {
+            let pane_id = task.pane.pane_id.as_str().to_string();
+            self.notes_pane_id = Some(pane_id.clone());
+            self.notes_text = load_notes(&pane_id);
+            self.mode = AppMode::Notes;
+        }
+    }
+
+    pub fn exit_notes_mode(&mut self) {
+        if let Some(ref pane_id) = self.notes_pane_id {
+            save_notes(pane_id, &self.notes_text);
+        }
+        self.notes_text.clear();
+        self.notes_pane_id = None;
+        self.mode = AppMode::Normal;
+    }
+
+    pub fn append_notes(&mut self, c: char) {
+        if self.notes_text.len() < 1024 {
+            self.notes_text.push(c);
+        }
+    }
+
+    pub fn backspace_notes(&mut self) {
+        self.notes_text.pop();
+    }
+}
+
+fn notes_file_path() -> std::path::PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    std::path::PathBuf::from(format!("{}/.tmux-taskgrid-notes", home))
+}
+
+fn load_notes(pane_id: &str) -> String {
+    let path = notes_file_path();
+    if !path.exists() {
+        return String::new();
+    }
+    if let Ok(content) = std::fs::read_to_string(&path) {
+        for line in content.lines() {
+            if let Some((id, note)) = line.split_once('\t') {
+                if id == pane_id {
+                    return note.to_string();
+                }
+            }
+        }
+    }
+    String::new()
+}
+
+fn save_notes(pane_id: &str, note: &str) {
+    let path = notes_file_path();
+    let mut lines: Vec<String> = Vec::new();
+
+    if path.exists() {
+        if let Ok(existing) = std::fs::read_to_string(&path) {
+            for line in existing.lines() {
+                if let Some((id, _)) = line.split_once('\t') {
+                    if id != pane_id {
+                        lines.push(line.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    if !note.trim().is_empty() {
+        lines.push(format!("{}\t{}", pane_id, note.trim()));
+    }
+
+    let _ = std::fs::write(&path, lines.join("\n") + "\n");
 }
 
 #[cfg(test)]

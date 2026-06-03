@@ -21,7 +21,7 @@ pub fn tmux_command(args: &[&str]) -> anyhow::Result<String> {
 
 /// List all panes across all sessions.
 pub fn list_panes() -> anyhow::Result<Vec<PaneInfo>> {
-    let format = "#{session_name}\t#{session_id}\t#{window_index}\t#{window_name}\t#{pane_index}\t#{pane_id}\t#{pane_pid}\t#{pane_active}";
+    let format = "#{session_name}\t#{session_id}\t#{window_index}\t#{window_name}\t#{pane_index}\t#{pane_id}\t#{pane_pid}\t#{pane_active}\t#{pane_activity}";
     let output = tmux_command(&["list-panes", "-a", "-F", format])?;
 
     let mut panes = Vec::new();
@@ -124,7 +124,7 @@ pub fn check_tmux() -> anyhow::Result<(String, bool)> {
 
 fn parse_pane_line(line: &str) -> Option<PaneInfo> {
     let parts: Vec<&str> = line.split('\t').collect();
-    if parts.len() < 8 {
+    if parts.len() < 9 {
         return None;
     }
 
@@ -137,6 +137,7 @@ fn parse_pane_line(line: &str) -> Option<PaneInfo> {
         pane_id: PaneId::new(parts[5]),
         pane_pid: parts[6].parse().ok()?,
         pane_active: parts[7] == "1",
+        activity_at: parts[8].parse().ok(),
     })
 }
 

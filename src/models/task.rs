@@ -51,12 +51,27 @@ pub fn classify(pane: &PaneInfo, process: Option<&ProcessInfo>) -> Task {
         Some(p) => match p.state {
             super::process::ProcessState::Dead | super::process::ProcessState::Zombie => TaskState::Exited,
             super::process::ProcessState::Running | super::process::ProcessState::Sleeping => {
+                // A pane is only "running" if it has an active non-shell process
+                // AND recent activity. Otherwise it's idle.
                 if is_idle_command(&p.command) {
                     TaskState::Idle
-                } else {
+                } else if pane.activity_at.map_or(false, |t| {
+                    let now = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs();
+                    // Consider "active" if activity within last 30 seconds
+                    now.saturating_sub(t) < 30
+                }) {
                     TaskState::Running
+                } else {
+                    // Process exists but no recent activity → idle
+                    TaskState::Idle
                 }
             }
+            super::process::ProcessState::Stopped => TaskState::Idle,
+            super::process::ProcessState::DiskSleep => TaskState::Idle,
+            super::process::ProcessState::Idle => TaskState::Idle,
             _ => TaskState::Unknown,
         },
     };
