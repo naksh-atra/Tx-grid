@@ -249,11 +249,11 @@ fn handle_key(
             }
             crossterm::event::KeyCode::Enter => {
                 if let Some(pane_id) = app.selected_task().map(|t| t.pane.pane_id.clone()) {
-                    // Jump to pane — close the popup first
                     app.set_status(format!("jumped to {}", pane_id.as_str()));
-                    // We need to break out and let tmux handle the jump
                     disable_raw_mode().ok();
-                    tmux_service::select_pane(&pane_id).ok();
+                    if let Err(e) = tmux_service::select_pane(&pane_id) {
+                        app.set_status(format!("jump failed: {}", e));
+                    }
                     enable_raw_mode().ok();
                     return Ok(true);
                 }
@@ -262,7 +262,7 @@ fn handle_key(
                 app.prompt_kill();
             }
             crossterm::event::KeyCode::Char('r') => {
-                restart_task(app);
+                app.enter_rename_mode();
             }
             _ => {}
         },
@@ -319,34 +319,6 @@ fn refresh_tasks(app: &mut App, service: &TaskService, current_pane: Option<&str
             warn!("refresh failed: {}", e);
             app.set_status(format!("refresh failed: {}", e));
         }
-    }
-}
-
-fn restart_task(app: &mut App) {
-    if let Some(task) = app.selected_task() {
-        let pane_id = &task.pane.pane_id;
-        // Send C-c, then try to re-run the command
-        if let Err(e) = tmux_service::send_keys(pane_id, "C-c") {
-            app.set_status(format!("restart failed: {}", e));
-            return;
-        }
-
-        std::thread::sleep(std::time::Duration::from_millis(200));
-
-        // For now, just send "Up + Enter" to repeat the last shell command
-        if let Err(e) = tmux_service::send_keys(pane_id, "Up") {
-            app.set_status(format!("restart failed: {}", e));
-            return;
-        }
-
-        std::thread::sleep(std::time::Duration::from_millis(100));
-
-        if let Err(e) = tmux_service::send_keys(pane_id, "Enter") {
-            app.set_status(format!("restart failed: {}", e));
-            return;
-        }
-
-        app.set_status(format!("restarted {}", task.pane.locator()));
     }
 }
 
