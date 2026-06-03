@@ -133,6 +133,7 @@ mod tests {
             pane_id: PaneId::new(format!("%{}", pid)),
             pane_pid: pid,
             pane_active: active,
+            activity_at: None,
         }
     }
 

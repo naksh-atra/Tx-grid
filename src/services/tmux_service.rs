@@ -147,7 +147,7 @@ mod tests {
 
     #[test]
     fn test_parse_pane_line_valid() {
-        let line = "main\t$0\t1\teditor\t0\t%5\t12345\t1";
+        let line = "main\t$0\t1\teditor\t0\t%5\t12345\t1\t0";
         let pane = parse_pane_line(line).unwrap();
         assert_eq!(pane.session_name, "main");
         assert_eq!(pane.window_index, 1);
@@ -160,7 +160,7 @@ mod tests {
 
     #[test]
     fn test_parse_pane_line_inactive() {
-        let line = "main\t$0\t1\teditor\t0\t%5\t12345\t0";
+        let line = "main\t$0\t1\teditor\t0\t%5\t12345\t0\t0";
         let pane = parse_pane_line(line).unwrap();
         assert!(!pane.pane_active);
     }

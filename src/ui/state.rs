@@ -1,4 +1,4 @@
-use crate::models::task::Task;
+use crate::models::task::{Task, TaskState};
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -325,7 +325,7 @@ mod tests {
     use super::*;
     use crate::models::pane::{PaneId, PaneInfo};
     use crate::models::process::{ProcessInfo, ProcessState};
-    use crate::models::task::Task;
+    use crate::models::task::{Task, TaskState};
 
     fn make_task(name: &str, session: &str, runtime: u64, state: TaskState) -> Task {
         Task {
