@@ -83,7 +83,6 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_a
     // Build rows with window group headers
     let mut rows: Vec<Row> = Vec::new();
     let mut last_window: Option<String> = None;
-    let display_idx: usize = 0;
 
     for (display_idx, task_idx) in app.filtered_indices.iter().enumerate() {
         let task = &app.tasks[*task_idx];
