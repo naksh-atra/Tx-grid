@@ -91,7 +91,11 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
 
             let row = Row::new(vec![
                 Cell::from(format!("{}", display_idx + 1)),
-                Cell::from(task.pane.locator()),
+                Cell::from(if task.pane.pane_title.is_empty() {
+                    task.pane.locator()
+                } else {
+                    task.pane.pane_title.clone()
+                }),
                 Cell::from(task.command_display.clone()),
                 Cell::from(runtime_str),
                 Cell::from(task.state.as_str()).style(state_style),
