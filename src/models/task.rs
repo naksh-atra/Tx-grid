@@ -133,7 +133,7 @@ mod tests {
             pane_id: PaneId::new(format!("%{}", pid)),
             pane_pid: pid,
             pane_active: active,
-            activity_at: None,
+            activity_at: Some(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs()),
         }
     }
 
