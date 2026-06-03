@@ -1,15 +1,15 @@
 use crate::models::task::Task;
 use std::time::{Duration, Instant};
 
-/// Application modes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AppMode {
     Normal,
     Filter,
     Confirm,
+    Rename,
+    Notes,
 }
 
-/// Sort order for the task list.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SortOrder {
     Runtime,
@@ -37,12 +37,15 @@ pub struct App {
     pub status_message: Option<String>,
     pub scroll_offset: usize,
     pub confirm_action: Option<ConfirmAction>,
+    pub rename_text: String,
+    pub notes_text: String,
+    pub notes_pane_id: Option<String>,
     pub last_refresh: Instant,
     pub refresh_interval: Duration,
 }
 
 pub enum ConfirmAction {
-    Kill(String), // pane_id
+    Kill(String),
 }
 
 impl App {
@@ -58,15 +61,16 @@ impl App {
             status_message: None,
             scroll_offset: 0,
             confirm_action: None,
+            rename_text: String::new(),
+            notes_text: String::new(),
+            notes_pane_id: None,
             last_refresh: Instant::now(),
             refresh_interval: Duration::from_secs(5),
         }
     }
 
-    /// Rebuild the filtered and sorted index list.
     pub fn apply_filter_and_sort(&mut self) {
         let filter_lower = self.filter_text.to_lowercase();
-
         let mut indices: Vec<usize> = (0..self.tasks.len())
             .filter(|i| {
                 if filter_lower.is_empty() {
@@ -79,12 +83,9 @@ impl App {
             })
             .collect();
 
-        // Sort
         match self.sort_order {
             SortOrder::Runtime => {
-                indices.sort_by_key(|i| {
-                    std::cmp::Reverse(self.tasks[*i].runtime.unwrap_or(0))
-                });
+                indices.sort_by_key(|i| std::cmp::Reverse(self.tasks[*i].runtime.unwrap_or(0)));
             }
             SortOrder::Session => {
                 indices.sort_by_key(|i| {
@@ -101,8 +102,6 @@ impl App {
         }
 
         self.filtered_indices = indices;
-
-        // Clamp selection
         if self.filtered_indices.is_empty() {
             self.selection = 0;
         } else if self.selection >= self.filtered_indices.len() {
@@ -167,8 +166,10 @@ impl App {
     }
 
     pub fn append_filter(&mut self, c: char) {
-        self.filter_text.push(c);
-        self.apply_filter_and_sort();
+        if self.filter_text.len() < 256 {
+            self.filter_text.push(c);
+            self.apply_filter_and_sort();
+        }
     }
 
     pub fn backspace_filter(&mut self) {
@@ -179,44 +180,6 @@ impl App {
     pub fn clear_filter(&mut self) {
         self.filter_text.clear();
         self.apply_filter_and_sort();
-    }
-
-    pub fn cycle_sort(&mut self) {
-        self.sort_order = self.sort_order.next();
-        self.apply_filter_and_sort();
-    }
-
-    pub fn set_status(&mut self, msg: impl Into<String>) {
-        self.status_message = Some(msg.into());
-    }
-
-    pub fn clear_status(&mut self) {
-        self.status_message = None;
-    }
-
-    pub fn should_refresh(&self) -> bool {
-        self.last_refresh.elapsed() >= self.refresh_interval
-    }
-
-    pub fn mark_refreshed(&mut self) {
-        self.last_refresh = Instant::now();
-    }
-
-    pub fn prompt_kill(&mut self) {
-        if let Some(task) = self.selected_task() {
-            self.confirm_action = Some(ConfirmAction::Kill(task.pane.pane_id.as_str().to_string()));
-            self.mode = AppMode::Confirm;
-        }
-    }
-
-    pub fn cancel_confirm(&mut self) {
-        self.confirm_action = None;
-        self.mode = AppMode::Normal;
-    }
-
-    pub fn confirm(&mut self) -> Option<ConfirmAction> {
-        self.mode = AppMode::Normal;
-        self.confirm_action.take()
     }
 
     pub fn enter_rename_mode(&mut self) {
@@ -272,6 +235,44 @@ impl App {
     pub fn backspace_notes(&mut self) {
         self.notes_text.pop();
     }
+
+    pub fn cycle_sort(&mut self) {
+        self.sort_order = self.sort_order.next();
+        self.apply_filter_and_sort();
+    }
+
+    pub fn set_status(&mut self, msg: impl Into<String>) {
+        self.status_message = Some(msg.into());
+    }
+
+    pub fn clear_status(&mut self) {
+        self.status_message = None;
+    }
+
+    pub fn should_refresh(&self) -> bool {
+        self.last_refresh.elapsed() >= self.refresh_interval
+    }
+
+    pub fn mark_refreshed(&mut self) {
+        self.last_refresh = Instant::now();
+    }
+
+    pub fn prompt_kill(&mut self) {
+        if let Some(task) = self.selected_task() {
+            self.confirm_action = Some(ConfirmAction::Kill(task.pane.pane_id.as_str().to_string()));
+            self.mode = AppMode::Confirm;
+        }
+    }
+
+    pub fn cancel_confirm(&mut self) {
+        self.confirm_action = None;
+        self.mode = AppMode::Normal;
+    }
+
+    pub fn confirm(&mut self) -> Option<ConfirmAction> {
+        self.mode = AppMode::Normal;
+        self.confirm_action.take()
+    }
 }
 
 fn notes_file_path() -> std::path::PathBuf {
@@ -321,7 +322,6 @@ fn save_notes(pane_id: &str, note: &str) {
 
 #[cfg(test)]
 mod tests {
-    use crate::models::task::TaskState;
     use super::*;
     use crate::models::pane::{PaneId, PaneInfo};
     use crate::models::process::{ProcessInfo, ProcessState};
@@ -338,10 +338,11 @@ mod tests {
                 pane_id: PaneId::new(name),
                 pane_pid: 123,
                 pane_active: false,
+                activity_at: None,
             },
             process: Some(ProcessInfo {
                 pid: 123,
-                command: "nvim".to_string(),
+                command: "nvim".into(),
                 args: vec![],
                 start_time: Some(0),
                 state: if state == TaskState::Running {
@@ -366,18 +367,13 @@ mod tests {
 
         let mut app = App::new(tasks);
         app.apply_filter_and_sort();
-
         assert_eq!(app.selection, 0);
-
         app.move_down(10);
         assert_eq!(app.selection, 1);
-
         app.move_down(10);
         assert_eq!(app.selection, 2);
-
         app.move_down(10);
-        assert_eq!(app.selection, 2); // clamped
-
+        assert_eq!(app.selection, 2);
         app.move_up();
         assert_eq!(app.selection, 1);
     }
@@ -392,12 +388,10 @@ mod tests {
         let mut app = App::new(tasks);
         app.apply_filter_and_sort();
         assert_eq!(app.filtered_indices.len(), 2);
-
         app.enter_filter_mode();
-        app.append_filter('d'); // "d" matches "dev"
+        app.append_filter('d');
         assert_eq!(app.filter_text, "d");
         assert_eq!(app.filtered_indices.len(), 1);
-
         app.clear_filter();
         assert_eq!(app.filtered_indices.len(), 2);
     }
@@ -408,4 +402,49 @@ mod tests {
         assert_eq!(SortOrder::Session.next(), SortOrder::State);
         assert_eq!(SortOrder::State.next(), SortOrder::Runtime);
     }
+
+    #[test]
+    fn test_rename_mode() {
+        let tasks = vec![
+            make_task("%0", "main", 100, TaskState::Running),
+        ];
+        let mut app = App::new(tasks);
+        assert_eq!(app.mode, AppMode::Normal);
+        app.enter_rename_mode();
+        assert_eq!(app.mode, AppMode::Rename);
+        assert_eq!(app.get_rename_text(), "%0");
+        app.append_rename('x');
+        assert_eq!(app.get_rename_text(), "%0x");
+        app.backspace_rename();
+        assert_eq!(app.get_rename_text(), "%0");
+        app.exit_rename_mode();
+        assert_eq!(app.mode, AppMode::Normal);
+    }
+
+    #[test]
+    fn test_notes_mode() {
+        let path = notes_file_path();
+        if path.exists() {
+            let _ = std::fs::remove_file(&path);
+        }
+        let tasks = vec![
+            make_task("%0", "main", 100, TaskState::Running),
+        ];
+        let mut app = App::new(tasks);
+        assert_eq!(app.mode, AppMode::Normal);
+        app.enter_notes_mode();
+        assert_eq!(app.mode, AppMode::Notes);
+        app.append_notes('h');
+        app.append_notes('i');
+        assert_eq!(app.notes_text, "hi");
+        app.backspace_notes();
+        assert_eq!(app.notes_text, "h");
+        app.exit_notes_mode();
+        assert_eq!(app.mode, AppMode::Normal);
+        assert!(app.notes_text.is_empty());
+        if path.exists() {
+            let _ = std::fs::remove_file(&path);
+        }
+    }
 }
+
