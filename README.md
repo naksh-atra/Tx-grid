@@ -1,59 +1,54 @@
 # tmux-taskgrid
 
-A Rust-based tmux plugin that opens a popup "task grid" showing all long-running commands and AI agents across your tmux panes — with status, runtime, filtering, and one-keystroke actions.
-
-![tmux-taskgrid popup showing a grid of panes with commands, runtimes, and states](docs/screenshot.png)
+A Rust-based tmux plugin that opens a popup "task grid" showing all long-running
+commands and AI agents across your tmux panes — with status, runtime, filtering,
+and one-keystroke actions.
 
 ## Features
 
 - **Pane discovery**: Enumerates all panes across all tmux sessions and windows
-- **Window grouping**: Panes grouped by window with visual headers (`▸ session:window`)
-- **Process inspection**: Shows command, runtime, and state (running/idle/exited) for each pane
-- **Notes per pane**: Press `n` to open a side-by-side notes editor; notes persist across sessions
-- **Rename panes**: Press `r` to rename any pane (sets the tmux pane title)
-- **Interactive TUI**: Navigate, filter, sort, and act from a centered tmux popup
-- **Actions**: Jump to pane, kill pane, rename, add notes — all from one keystroke
+- **Window grouping**: Panes grouped by window with visual headers
+  (`▸ session:window`)
+- **Process inspection**: Shows command, runtime, and state for each pane
+- **Notes per pane**: Press `n` to open a side-by-side split view editor
+- **Rename panes**: Press `r` to set the pane title
+- **Interactive TUI**: Navigate, filter, sort, and act from a tmux popup
+- **Actions**: Jump to pane, kill pane, rename, add notes
 - **CLI modes**: `--check`, `--json`, `--doctor`, `--install-keybinding`
 - **Configurable**: Customize via tmux options in `~/.tmux.conf`
 
 ## Requirements
 
-- **tmux 3.2+** (for `display-popup` support)
+- **tmux 3.2+** (for `display-popup`)
 - **Linux** or **macOS**
-- Rust 1.70+ (only if building from source)
 
 ## Quick Install
 
-### One-liner (downloads pre-built binary or builds from source)
+### One-liner
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/naksh-atra/Tx-grid/main/scripts/install.sh | bash
 ```
 
 Then reload tmux:
+
 ```bash
 tmux source-file ~/.tmux.conf
 ```
 
-### Manual install (pre-built binary)
-
-1. Download the latest binary for your platform from the [releases page](https://github.com/naksh-atra/Tx-grid/releases)
-2. Place it on your PATH:
+### Manual (pre-built binary)
 
 ```bash
-# Linux x64
 curl -fsSL -o ~/.local/bin/tmux-taskgrid \
   https://github.com/naksh-atra/Tx-grid/releases/latest/download/tmux-taskgrid-linux-x64
 chmod +x ~/.local/bin/tmux-taskgrid
 ```
 
-3. Add to `~/.tmux.conf`:
+Add to `~/.tmux.conf`:
 
 ```
 bind-key -T prefix P display-popup -w 80% -h 60% -E "tmux-taskgrid"
 ```
-
-4. Reload: `tmux source-file ~/.tmux.conf`
 
 ### Build from source
 
@@ -64,7 +59,7 @@ cargo build --release
 cp target/release/tmux-taskgrid ~/.local/bin/tmux-taskgrid
 ```
 
-### TPM (Tmux Plugin Manager)
+### TPM
 
 Add to `~/.tmux.conf`:
 
@@ -90,35 +85,39 @@ Ctrl+B, then Shift+P
 | `g` / `G` | Jump to first/last pane |
 | `PgUp` / `PgDn` | Page up/down |
 | `/` | Filter panes by name/command |
-| `s` | Cycle sort order (runtime → session → state) |
+| `s` | Cycle sort (runtime → session → state) |
 | `Enter` | Jump to selected pane |
 | `x` | Kill selected pane (with confirmation) |
 | `r` | Rename selected pane |
-| `n` | Open notes editor for selected pane (split view) |
+| `n` | Open notes editor (split view) |
 | `q` / `Esc` / `Ctrl+C` | Quit |
 
 ### Rename mode
 
-Press `r` on a selected pane. The current pane title (or `session:window` as default) appears in the footer. Type the new name, `Enter` to apply, `Esc` to cancel.
+Press `r` on a selected pane. The current pane title (or `session:window` as
+default) appears in the footer. Type the new name, `Enter` to apply, `Esc` to
+cancel.
 
 ### Notes mode
 
 Press `n` on a selected pane. The popup splits:
-- **Left**: Task grid (narrowed to #, Pane, Command)
+
+- **Left**: Task grid (narrowed)
 - **Right**: Full notes editor with word wrapping
 
-Type freely. `Enter` for new lines. `Esc` to save and exit. Notes are stored in `~/.tmux-taskgrid-notes`.
+Type freely. `Enter` for new lines. `Esc` to save and exit. Notes are stored
+in `~/.tmux-taskgrid-notes`.
 
-### CLI modes
+### CLI
 
 ```bash
-tmux-taskgrid                # Open TUI popup
-tmux-taskgrid --check        # Print task summary (non-interactive)
-tmux-taskgrid --json         # Print JSON output
-tmux-taskgrid --doctor       # Environment diagnostics
-tmux-taskgrid --install-keybinding  # Auto-configure ~/.tmux.conf
-tmux-taskgrid --debug        # Verbose logging
-tmux-taskgrid --version      # Print version
+tmux-taskgrid                      # Open TUI popup
+tmux-taskgrid --check              # Print task summary
+tmux-taskgrid --json               # Print JSON output
+tmux-taskgrid --doctor             # Environment diagnostics
+tmux-taskgrid --install-keybinding # Auto-configure ~/.tmux.conf
+tmux-taskgrid --debug              # Verbose logging
+tmux-taskgrid --version            # Print version
 ```
 
 ## Configuration
@@ -142,33 +141,35 @@ set -g @taskgrid-confirm-kill "1"
 
 ## Platform Support
 
-| Platform | Popup | Notes |
-|----------|-------|-------|
-| Linux (x64, arm64) | ✅ Full support | |
-| macOS (x64, arm64) | ✅ Full support | |
-| Windows (PSMux) | ❌ Popup doesn't support TUI | Run in pane mode only |
-| Windows (WSL) | ✅ Full support | |
+| Platform | Support |
+|----------|---------|
+| Linux x64 | Full |
+| Linux arm64 | Full |
+| macOS x64 | Full |
+| macOS arm64 | Full |
+| Windows (WSL) | Full |
+| Windows (PSMux) | Pane mode only (no popup) |
 
 ## Architecture
 
 ```
 src/
-├── main.rs          # Entry point, CLI parsing, event loop
-├── cli.rs           # clap argument definitions
-├── config.rs        # Config from tmux options
-├── logging.rs       # env_logger init
+├── main.rs              # Entry point, CLI, event loop
+├── cli.rs               # clap argument definitions
+├── config.rs            # Config from tmux options
+├── logging.rs           # env_logger init
 ├── models/
-│   ├── pane.rs      # PaneId, PaneInfo structs
-│   ├── process.rs   # Process inspection via /proc
-│   └── task.rs      # Task classification, build_tasks
+│   ├── pane.rs          # PaneId, PaneInfo
+│   ├── process.rs       # Process inspection via /proc
+│   └── task.rs          # Task classification
 ├── services/
 │   ├── tmux_service.rs  # tmux command wrapper
 │   └── task_service.rs  # Task discovery with caching
 └── ui/
-    ├── state.rs     # App state machine (Normal/Filter/Confirm/Rename/Notes)
-    ├── render.rs    # ratatui rendering
-    ├── layout.rs    # Layout helpers (split view for notes)
-    └── events.rs    # crossterm event polling
+    ├── state.rs         # App state machine
+    ├── render.rs        # ratatui rendering
+    ├── layout.rs        # Layout helpers (split view)
+    └── events.rs        # crossterm event polling
 ```
 
 ## Contributing
