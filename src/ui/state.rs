@@ -184,7 +184,15 @@ impl App {
 
     pub fn enter_rename_mode(&mut self) {
         if let Some(task) = self.selected_task() {
-            self.rename_text = task.pane.pane_id.as_str().to_string();
+            // Use existing pane title if set, otherwise start with empty string
+            // (user sees a clean input, not the internal pane_id like %0)
+            let current = &task.pane.pane_title;
+            self.rename_text = if current.is_empty() {
+                // Fallback: use session:window as a hint
+                format!("{}:{}", task.pane.session_name, task.pane.window_name)
+            } else {
+                current.clone()
+            };
             self.mode = AppMode::Rename;
         }
     }
@@ -413,11 +421,11 @@ mod tests {
         assert_eq!(app.mode, AppMode::Normal);
         app.enter_rename_mode();
         assert_eq!(app.mode, AppMode::Rename);
-        assert_eq!(app.get_rename_text(), "%0");
+        assert_eq!(app.get_rename_text(), "main:main");
         app.append_rename('x');
-        assert_eq!(app.get_rename_text(), "%0x");
+        assert_eq!(app.get_rename_text(), "main:mainx");
         app.backspace_rename();
-        assert_eq!(app.get_rename_text(), "%0");
+        assert_eq!(app.get_rename_text(), "main:main");
         app.exit_rename_mode();
         assert_eq!(app.mode, AppMode::Normal);
     }
