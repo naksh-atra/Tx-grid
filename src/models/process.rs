@@ -255,11 +255,6 @@ mod tests {
 
 /// Caching wrapper around any ProcessProvider.
 /// Caches results for a configurable TTL to avoid repeated /proc reads.
-pub struct CachedProcessProvider {
-    inner: Box<dyn ProcessProvider>,
-    cache: std::collections::HashMap<u32, (Option<ProcessInfo>, std::time::Instant)>,
-    ttl: std::time::Duration,
-}
 
 impl CachedProcessProvider {
     pub fn new(inner: Box<dyn ProcessProvider>, ttl_secs: u64) -> Self {
