@@ -9,29 +9,26 @@ use ratatui::{
 
 // Render the entire application UI.
 pub fn draw(f: &mut Frame, app: &App) {
-let notes_active = app.mode == AppMode::Notes;
-let chunks = crate::ui::layout::main_layout(f, notes_active);
+    let notes_active = app.mode == AppMode::Notes;
+    let chunks = crate::ui::layout::main_layout(f, notes_active);
 
-draw_header(f, chunks[0], app);
-draw_task_list(f, chunks[1], app, notes_active);
+    draw_header(f, chunks[0], app);
+    draw_task_list(f, chunks[1], app, notes_active);
 
-if notes_active && chunks.len() > 2 && chunks[2].width > 0 {
-    draw_notes_panel(f, chunks[2], app);
-}
+    if notes_active && chunks.len() > 2 && chunks[2].width > 0 {
+        draw_notes_panel(f, chunks[2], app);
+    }
 
-draw_footer(f, chunks[chunks.len() - 1], app);
+    draw_footer(f, chunks[chunks.len() - 1], app);
 
-// Draw confirmation dialog if needed
-if app.mode == AppMode::Confirm {
-    draw_confirm_dialog(f, app);
-}
+    // Draw confirmation dialog if needed
+    if app.mode == AppMode::Confirm {
+        draw_confirm_dialog(f, app);
+    }
 }
 
 fn draw_header(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
-    let title = format!(
-        " tmux-taskgrid — {} tasks ",
-        app.filtered_indices.len()
-    );
+    let title = format!(" tmux-taskgrid — {} tasks ", app.filtered_indices.len());
 
     let sort_label = match app.sort_order {
         crate::ui::state::SortOrder::Runtime => "runtime",
@@ -48,10 +45,7 @@ fn draw_header(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         )),
-        Line::from(Span::styled(
-            subtitle,
-            Style::default().fg(Color::DarkGray),
-        )),
+        Line::from(Span::styled(subtitle, Style::default().fg(Color::DarkGray))),
     ])
     .block(Block::default().borders(Borders::BOTTOM));
 
@@ -73,11 +67,17 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_a
     }
 
     let header = if notes_active {
-        Row::new(vec!["#", "Pane", "Command"])
-            .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+        Row::new(vec!["#", "Pane", "Command"]).style(
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )
     } else {
-        Row::new(vec!["#", "Pane", "Command", "Runtime", "State"])
-            .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+        Row::new(vec!["#", "Pane", "Command", "Runtime", "State"]).style(
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )
     };
 
     // Build rows with window group headers
@@ -94,19 +94,30 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_a
             let window_label = if task.pane.window_name.is_empty() {
                 format!("▸ {}:{}", task.pane.session_name, task.pane.window_index)
             } else {
-                format!("▸ {}:{} ({})", task.pane.session_name, task.pane.window_index, task.pane.window_name)
+                format!(
+                    "▸ {}:{} ({})",
+                    task.pane.session_name, task.pane.window_index, task.pane.window_name
+                )
             };
             // Full-width header: put label in first cell, empty in rest
             // The table column constraints will handle width
             if notes_active {
                 rows.push(Row::new(vec![
-                    Cell::from(window_label).style(Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM)),
+                    Cell::from(window_label).style(
+                        Style::default()
+                            .fg(Color::DarkGray)
+                            .add_modifier(Modifier::DIM),
+                    ),
                     Cell::from(""),
                     Cell::from(""),
                 ]));
             } else {
                 rows.push(Row::new(vec![
-                    Cell::from(window_label).style(Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM)),
+                    Cell::from(window_label).style(
+                        Style::default()
+                            .fg(Color::DarkGray)
+                            .add_modifier(Modifier::DIM),
+                    ),
                     Cell::from(""),
                     Cell::from(""),
                     Cell::from(""),
@@ -152,21 +163,21 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_a
             ])
         };
 
-            let styled_row = if task.pane.window_name.starts_with("▸") {
-                // Window header row — already styled above
-                row
-            } else if is_selected {
-                let bg = if app.mode == AppMode::Rename {
-                    Color::Yellow
-                } else if app.mode == AppMode::Notes {
-                    Color::Cyan
-                } else {
-                    Color::DarkGray
-                };
-                row.style(Style::default().bg(bg).add_modifier(Modifier::BOLD))
+        let styled_row = if task.pane.window_name.starts_with("▸") {
+            // Window header row — already styled above
+            row
+        } else if is_selected {
+            let bg = if app.mode == AppMode::Rename {
+                Color::Yellow
+            } else if app.mode == AppMode::Notes {
+                Color::Cyan
             } else {
-                row
+                Color::DarkGray
             };
+            row.style(Style::default().bg(bg).add_modifier(Modifier::BOLD))
+        } else {
+            row
+        };
 
         rows.push(styled_row);
         display_idx += 1;
@@ -202,37 +213,41 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_a
             .add_modifier(Modifier::BOLD),
     );
 
-
     f.render_widget(table, area);
 }
 
 fn draw_footer(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
     let content = match app.mode {
-        AppMode::Filter => {
-            Line::from(vec![
-                Span::styled(
-                    " Filter: ",
-                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
-                ),
-                Span::raw(&app.filter_text),
-                Span::styled(" | Esc: cancel | Enter: apply", Style::default().fg(Color::DarkGray)),
-            ])
-        }
-        AppMode::Confirm => {
-            Line::from(vec![
-                Span::styled(
-                    " Confirm kill? (y/n) ",
-                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
-                ),
-            ])
-        }
-        AppMode::Rename => {
-            Line::from(vec![
-                Span::styled(" Rename: ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                Span::raw(&app.rename_text),
-                Span::styled(" | Esc: cancel | Enter: apply", Style::default().fg(Color::DarkGray)),
-            ])
-        }
+        AppMode::Filter => Line::from(vec![
+            Span::styled(
+                " Filter: ",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(&app.filter_text),
+            Span::styled(
+                " | Esc: cancel | Enter: apply",
+                Style::default().fg(Color::DarkGray),
+            ),
+        ]),
+        AppMode::Confirm => Line::from(vec![Span::styled(
+            " Confirm kill? (y/n) ",
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        )]),
+        AppMode::Rename => Line::from(vec![
+            Span::styled(
+                " Rename: ",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(&app.rename_text),
+            Span::styled(
+                " | Esc: cancel | Enter: apply",
+                Style::default().fg(Color::DarkGray),
+            ),
+        ]),
         AppMode::Notes => {
             let display = if app.notes_text.len() > 40 {
                 format!("{}...", &app.notes_text[..40])
@@ -240,7 +255,12 @@ fn draw_footer(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
                 app.notes_text.clone()
             };
             Line::from(vec![
-                Span::styled(" Notes: ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    " Notes: ",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw(display),
                 Span::styled(" | Esc: save & quit", Style::default().fg(Color::DarkGray)),
             ])
@@ -279,10 +299,9 @@ fn draw_notes_panel(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
             "Type notes for this pane...",
             Style::default().fg(Color::DarkGray),
         ));
-        placeholder_line.spans.push(Span::styled(
-            " ▌",
-            Style::default().fg(Color::Cyan),
-        ));
+        placeholder_line
+            .spans
+            .push(Span::styled(" ▌", Style::default().fg(Color::Cyan)));
         lines.push(placeholder_line);
     } else {
         // Word-wrap the notes text
@@ -302,10 +321,7 @@ fn draw_notes_panel(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
         // Last line — text + blinking cursor as separate spans
         let text = current_line.clone();
         let cursor_span = Span::styled("▌", Style::default().fg(Color::Cyan));
-        lines.push(Line::from(vec![
-            Span::raw(text),
-            cursor_span,
-        ]));
+        lines.push(Line::from(vec![Span::raw(text), cursor_span]));
     }
 
     let notes_widget = Paragraph::new(lines)
@@ -330,10 +346,7 @@ fn draw_confirm_dialog(f: &mut Frame, app: &App) {
         .unwrap_or_else(|| "Kill selected pane?".to_string());
 
     let dialog = Paragraph::new(vec![
-        Line::from(Span::styled(
-            task_info,
-            Style::default().fg(Color::White),
-        )),
+        Line::from(Span::styled(task_info, Style::default().fg(Color::White))),
         Line::from(Span::styled(
             " y: yes  n: cancel",
             Style::default().fg(Color::DarkGray),

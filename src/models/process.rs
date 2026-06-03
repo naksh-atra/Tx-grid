@@ -114,7 +114,11 @@ fn parse_state(code: &str) -> ProcessState {
 
 fn get_clk_tck() -> u64 {
     let ticks = unsafe { libc::sysconf(libc::_SC_CLK_TCK) };
-    if ticks > 0 { ticks as u64 } else { 100 }
+    if ticks > 0 {
+        ticks as u64
+    } else {
+        100
+    }
 }
 
 fn read_uptime_secs() -> Option<u64> {
@@ -223,7 +227,6 @@ mod tests {
         }
     }
 }
-
 
 /// Caching wrapper around any ProcessProvider.
 /// Caches results for a configurable TTL to avoid repeated /proc reads.
