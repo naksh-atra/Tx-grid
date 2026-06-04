@@ -24,7 +24,6 @@ elif [ -x "$PROJECT_DIR/target/debug/tmux-taskgrid" ]; then
 fi
 
 if [ -z "$BINARY" ]; then
-    # Show error in tmux if possible
     tmux display-message "tmux-taskgrid: binary not found. Build with: cargo build --release" 2>/dev/null || true
     echo "tmux-taskgrid binary not found." >&2
     echo "Either install it on PATH or build: cargo build --release" >&2
@@ -32,8 +31,9 @@ if [ -z "$BINARY" ]; then
 fi
 
 # Get popup dimensions from tmux options
-WIDTH="$(tmux show-option -gv @taskgrid-popup-width 2>/dev/null || echo "80%")"
-HEIGHT="$(tmux show-option -gv @taskgrid-popup-height 2>/dev/null || echo "60%")"
+WIDTH="$(tmux show-option -gv @taskgrid-popup-width 2>/dev/null || echo '80%')"
+HEIGHT="$(tmux show-option -gv @taskgrid-popup-height 2>/dev/null || echo '60%')"
 
 # Open popup with taskgrid
+# shellcheck disable=SC2086
 tmux display-popup -w "$WIDTH" -h "$HEIGHT" -E "$BINARY"

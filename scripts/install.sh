@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2034,SC2086,SC2164
+# shellcheck disable=SC2034,SC2086,SC2164,SC2064
 set -euo pipefail
 
 # tmux-taskgrid installer
@@ -35,8 +35,7 @@ if command -v cargo &>/dev/null; then
         exit 1
     fi
     TMP_DIR="$(mktemp -d)"
-    # shellcheck disable=SC2064
-    trap "rm -rf $TMP_DIR" EXIT
+    trap 'rm -rf "$TMP_DIR"' EXIT
     git clone --depth 1 "https://github.com/${REPO}.git" "$TMP_DIR"
     cd "$TMP_DIR"
     cargo build --release
@@ -57,8 +56,7 @@ else
 
     DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG}/tmux-taskgrid-${SUFFIX}"
     TMP_FILE="$(mktemp)"
-    # shellcheck disable=SC2064
-    trap "rm -f $TMP_FILE" EXIT
+    trap 'rm -f "$TMP_FILE"' EXIT
 
     if ! curl -fsSL -o "$TMP_FILE" "$DOWNLOAD_URL"; then
         echo "Download failed. Your platform (${SUFFIX}) may not have a pre-built binary yet." >&2
@@ -87,14 +85,18 @@ if [ -f "$TMUX_CONF" ]; then
     if grep -q "tmux-taskgrid" "$TMUX_CONF"; then
         echo "Keybinding already present in ~/.tmux.conf"
     else
-        echo "" >> "$TMUX_CONF"
-        echo "# tmux-taskgrid popup keybinding" >> "$TMUX_CONF"
-        echo 'bind-key -T prefix P display-popup -w 80% -h 60% -E "tmux-taskgrid"' >> "$TMUX_CONF"
+        {
+            echo ""
+            echo "# tmux-taskgrid popup keybinding"
+            echo 'bind-key -T prefix P display-popup -w 80% -h 60% -E "tmux-taskgrid"'
+        } >> "$TMUX_CONF"
         echo "Added keybinding to ~/.tmux.conf"
     fi
 else
-    echo "# tmux-taskgrid popup keybinding" > "$TMUX_CONF"
-    echo 'bind-key -T prefix P display-popup -w 80% -h 60% -E "tmux-taskgrid"' >> "$TMUX_CONF"
+    {
+        echo "# tmux-taskgrid popup keybinding"
+        echo 'bind-key -T prefix P display-popup -w 80% -h 60% -E "tmux-taskgrid"'
+    } > "$TMUX_CONF"
     echo "Created ~/.tmux.conf with keybinding"
 fi
 
