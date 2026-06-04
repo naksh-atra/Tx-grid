@@ -35,5 +35,4 @@ WIDTH="$(tmux show-option -gv @taskgrid-popup-width 2>/dev/null || echo '80%')"
 HEIGHT="$(tmux show-option -gv @taskgrid-popup-height 2>/dev/null || echo '60%')"
 
 # Open popup with taskgrid
-# shellcheck disable=SC2086
-tmux display-popup -w "$WIDTH" -h "$HEIGHT" -E "$BINARY"
+tmux display-popup -w "${WIDTH}" -h "${HEIGHT}" -E "${BINARY}"
