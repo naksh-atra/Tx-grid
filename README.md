@@ -15,12 +15,12 @@ and one-keystroke actions.
 - **Interactive TUI**: Navigate, filter, sort, and act from a tmux popup
 - **Actions**: Jump to pane, kill pane, rename, add notes
 - **CLI modes**: `--check`, `--json`, `--doctor`, `--install-keybinding`
-- **Configurable**: Customize via tmux options in `~/.tmux.conf`
+- **Configurable**: Customize popup dimensions via tmux options
 
 ## Requirements
 
 - **tmux 3.2+** (for `display-popup`)
-- **Linux** or **macOS**
+- **Linux** (macOS not yet tested)
 
 ## Quick Install
 
@@ -59,16 +59,6 @@ cargo build --release
 cp target/release/tmux-taskgrid ~/.local/bin/tmux-taskgrid
 ```
 
-### TPM
-
-Add to `~/.tmux.conf`:
-
-```
-set -g @plugin 'naksh-atra/tmux-taskgrid'
-```
-
-Then press `Prefix + I` to install.
-
 ## Usage
 
 Open the task grid popup:
@@ -102,7 +92,7 @@ cancel.
 
 Press `n` on a selected pane. The popup splits:
 
-- **Left**: Task grid (narrowed)
+- **Left**: Task grid (narrowed to #, Pane, Command)
 - **Right**: Full notes editor with word wrapping
 
 Type freely. `Enter` for new lines. `Esc` to save and exit. Notes are stored
@@ -115,7 +105,7 @@ tmux-taskgrid                      # Open TUI popup
 tmux-taskgrid --check              # Print task summary
 tmux-taskgrid --json               # Print JSON output
 tmux-taskgrid --doctor             # Environment diagnostics
-tmux-taskgrid --install-keybinding # Auto-configure ~/.tmux.conf
+tmux-taskgrid --install-keybinding # Add keybinding to ~/.tmux.conf
 tmux-taskgrid --debug              # Verbose logging
 tmux-taskgrid --version            # Print version
 ```
@@ -125,17 +115,14 @@ tmux-taskgrid --version            # Print version
 Add to `~/.tmux.conf`:
 
 ```
-# Popup dimensions
+# Popup dimensions (percentage or absolute)
 set -g @taskgrid-popup-width "80%"
 set -g @taskgrid-popup-height "60%"
 
-# Keybinding (default: P = Shift+P)
-set -g @taskgrid-key "P"
-
-# Refresh interval in seconds
+# Refresh interval in seconds (default: 5)
 set -g @taskgrid-refresh-interval "5"
 
-# Confirm before killing panes
+# Confirm before killing panes (default: 1)
 set -g @taskgrid-confirm-kill "1"
 ```
 
@@ -145,10 +132,14 @@ set -g @taskgrid-confirm-kill "1"
 |----------|---------|
 | Linux x64 | Full |
 | Linux arm64 | Full |
-| macOS x64 | Full |
-| macOS arm64 | Full |
+| macOS | Not yet tested |
 | Windows (WSL) | Full |
-| Windows (PSMux) | Pane mode only (no popup) |
+| Windows (PSMux) | Not supported |
+
+## Data
+
+- Notes are stored in `~/.tmux-taskgrid-notes` (tab-separated: `pane_id\ttext`)
+- No other persistent data is created
 
 ## Architecture
 
@@ -166,9 +157,9 @@ src/
 │   ├── tmux_service.rs  # tmux command wrapper
 │   └── task_service.rs  # Task discovery with caching
 └── ui/
-    ├── state.rs         # App state machine
+    ├── state.rs         # App state machine (5 modes)
     ├── render.rs        # ratatui rendering
-    ├── layout.rs        # Layout helpers (split view)
+    ├── layout.rs        # Layout helpers (split view for notes)
     └── events.rs        # crossterm event polling
 ```
 
