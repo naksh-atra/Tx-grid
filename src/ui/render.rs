@@ -30,14 +30,6 @@ pub fn draw(f: &mut Frame, app: &App) {
 fn draw_header(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
     let title = format!(" tmux-taskgrid — {} tasks ", app.filtered_indices.len());
 
-    let sort_label = match app.sort_order {
-        crate::ui::state::SortOrder::Runtime => "runtime",
-        crate::ui::state::SortOrder::Session => "session",
-        crate::ui::state::SortOrder::State => "state",
-    };
-
-    let subtitle = format!("[sort: {}] [s] cycle sort", sort_label);
-
     let header = Paragraph::new(vec![
         Line::from(Span::styled(
             &title,
@@ -45,7 +37,6 @@ fn draw_header(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         )),
-        Line::from(Span::styled(subtitle, Style::default().fg(Color::DarkGray))),
     ])
     .block(Block::default().borders(Borders::BOTTOM));
 
@@ -54,13 +45,30 @@ fn draw_header(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
 
 fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_active: bool) {
     if app.filtered_indices.is_empty() {
-        let empty_msg = if app.tasks.is_empty() {
-            "No panes found. Press q to quit."
+        let empty_lines = if app.tasks.is_empty() {
+            vec![
+                Line::from(Span::styled(
+                    "No panes found.",
+                    Style::default().fg(Color::DarkGray),
+                )),
+                Line::from(Span::styled(
+                    "Create some panes in tmux first, then press q to quit.",
+                    Style::default().fg(Color::DarkGray),
+                )),
+            ]
         } else {
-            "No tasks match the filter. Press Esc to clear filter."
+            vec![
+                Line::from(Span::styled(
+                    format!("No tasks match the filter: \"{}\"", app.filter_text),
+                    Style::default().fg(Color::DarkGray),
+                )),
+                Line::from(Span::styled(
+                    "Press Esc to clear the filter.",
+                    Style::default().fg(Color::DarkGray),
+                )),
+            ]
         };
-        let msg = Paragraph::new(empty_msg)
-            .style(Style::default().fg(Color::DarkGray))
+        let msg = Paragraph::new(empty_lines)
             .block(Block::default().borders(Borders::NONE));
         f.render_widget(msg, area);
         return;
@@ -83,7 +91,6 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_a
     // Build rows with window group headers
     let mut rows: Vec<Row> = Vec::new();
     let mut last_window: Option<String> = None;
-    let display_idx: usize = 0;
 
     for (display_idx, task_idx) in app.filtered_indices.iter().enumerate() {
         let task = &app.tasks[*task_idx];
@@ -91,33 +98,55 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_a
 
         // Insert a window header row when we encounter a new window
         if last_window.as_ref() != Some(&window_key) {
+            // Count panes in this window for the header
+            let pane_count = app
+                .filtered_indices
+                .iter()
+                .filter(|idx| {
+                    let t = &app.tasks[**idx];
+                    let k = format!("{}:{}", t.pane.session_name, t.pane.window_index);
+                    k == window_key
+                })
+                .count();
+
             let window_label = if task.pane.window_name.is_empty() {
-                format!("▸ {}:{}", task.pane.session_name, task.pane.window_index)
+                format!(
+                    "▸ {}:{} [{} panes]",
+                    task.pane.session_name, task.pane.window_index, pane_count
+                )
             } else {
                 format!(
-                    "▸ {}:{} ({})",
-                    task.pane.session_name, task.pane.window_index, task.pane.window_name
+                    "▸ {}:{} ({}) [{} panes]",
+                    task.pane.session_name,
+                    task.pane.window_index,
+                    task.pane.window_name,
+                    pane_count
                 )
             };
-            // Full-width header: put label in first cell, empty in rest
-            // The table column constraints will handle width
+
+            // Cycle through colors for each window group
+            let colors = [
+                Color::Cyan,
+                Color::Yellow,
+                Color::Green,
+                Color::Magenta,
+                Color::Blue,
+                Color::Red,
+            ];
+            let color_idx = last_window.as_ref().map_or(0, |w| {
+                w.bytes().fold(0u32, |acc, b| acc.wrapping_add(b as u32)) as usize % colors.len()
+            });
+            let color = colors[color_idx];
+
             if notes_active {
                 rows.push(Row::new(vec![
-                    Cell::from(window_label).style(
-                        Style::default()
-                            .fg(Color::DarkGray)
-                            .add_modifier(Modifier::DIM),
-                    ),
+                    Cell::from(window_label).style(Style::default().fg(color)),
                     Cell::from(""),
                     Cell::from(""),
                 ]));
             } else {
                 rows.push(Row::new(vec![
-                    Cell::from(window_label).style(
-                        Style::default()
-                            .fg(Color::DarkGray)
-                            .add_modifier(Modifier::DIM),
-                    ),
+                    Cell::from(window_label).style(Style::default().fg(color)),
                     Cell::from(""),
                     Cell::from(""),
                     Cell::from(""),
@@ -163,10 +192,7 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_a
             ])
         };
 
-        let styled_row = if task.pane.window_name.starts_with("▸") {
-            // Window header row — already styled above
-            row
-        } else if is_selected {
+        let styled_row = if is_selected {
             let bg = if app.mode == AppMode::Rename {
                 Color::Yellow
             } else if app.mode == AppMode::Notes {
@@ -216,7 +242,8 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_a
 }
 
 fn draw_footer(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
-    let content = match app.mode {
+    // Line 1: mode-specific keybindings
+    let mode_line = match app.mode {
         AppMode::Filter => Line::from(vec![
             Span::styled(
                 " Filter: ",
@@ -266,19 +293,41 @@ fn draw_footer(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
         }
         AppMode::Normal => {
             let help = " j/k: move | Enter: jump | x: kill | r: rename | n: notes | /: filter | s: sort | q: quit ";
-            let status = app
-                .status_message
-                .as_ref()
-                .map(|s| format!(" | {}", s))
-                .unwrap_or_default();
-            Line::from(vec![
-                Span::styled(help, Style::default().fg(Color::DarkGray)),
-                Span::styled(status, Style::default().fg(Color::Yellow)),
-            ])
+            Line::from(Span::styled(help, Style::default().fg(Color::DarkGray)))
         }
     };
 
-    let footer = Paragraph::new(content).block(Block::default().borders(Borders::TOP));
+    // Line 2: status message + filter indicator + sort mode
+    let sort_label = match app.sort_order {
+        crate::ui::state::SortOrder::Runtime => "runtime",
+        crate::ui::state::SortOrder::Session => "session",
+        crate::ui::state::SortOrder::State => "state",
+    };
+
+    let mut status_parts: Vec<Span> = Vec::new();
+
+    if let Some(ref msg) = app.status_message {
+        status_parts.push(Span::styled(msg.clone(), Style::default().fg(Color::Yellow)));
+        status_parts.push(Span::raw("  "));
+    }
+
+    if !app.filter_text.is_empty() {
+        status_parts.push(Span::styled(
+            format!("filter: \"{}\"", app.filter_text),
+            Style::default().fg(Color::Cyan),
+        ));
+        status_parts.push(Span::raw("  "));
+    }
+
+    status_parts.push(Span::styled(
+        format!("sort: {}  [s] cycle", sort_label),
+        Style::default().fg(Color::DarkGray),
+    ));
+
+    let status_line = Line::from(status_parts);
+
+    let footer = Paragraph::new(vec![mode_line, status_line])
+        .block(Block::default().borders(Borders::TOP));
     f.render_widget(footer, area);
 }
 
@@ -293,7 +342,6 @@ fn draw_notes_panel(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
     let mut lines: Vec<Line> = Vec::new();
 
     if notes_text.is_empty() {
-        // Placeholder text with cursor at end
         let mut placeholder_line = Line::from(Span::styled(
             "Type notes for this pane...",
             Style::default().fg(Color::DarkGray),
@@ -303,7 +351,6 @@ fn draw_notes_panel(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
             .push(Span::styled(" ▌", Style::default().fg(Color::Cyan)));
         lines.push(placeholder_line);
     } else {
-        // Word-wrap the notes text
         let mut current_line = String::new();
         for ch in notes_text.chars() {
             if ch == '\n' {
@@ -317,7 +364,6 @@ fn draw_notes_panel(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
                 current_line.push(ch);
             }
         }
-        // Last line — text + blinking cursor as separate spans
         let text = current_line.clone();
         let cursor_span = Span::styled("▌", Style::default().fg(Color::Cyan));
         lines.push(Line::from(vec![Span::raw(text), cursor_span]));
@@ -336,24 +382,36 @@ fn draw_notes_panel(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
 }
 
 fn draw_confirm_dialog(f: &mut Frame, app: &App) {
-    let area = centered_rect(50, 3, f.area());
+    // Centered modal overlay
+    let area = centered_rect(60, 7, f.area());
     f.render_widget(Clear, area);
 
     let task_info = app
         .selected_task()
-        .map(|t| format!("Kill pane {} ({})?", t.pane.locator(), t.command_display))
+        .map(|t| {
+            format!(
+                "Kill pane {} ({})\nRunning: {}",
+                t.pane.locator(),
+                t.command_display,
+                t.runtime
+                    .map(format_runtime)
+                    .unwrap_or_else(|| "—".to_string())
+            )
+        })
         .unwrap_or_else(|| "Kill selected pane?".to_string());
 
     let dialog = Paragraph::new(vec![
+        Line::from(Span::styled("⚠ ", Style::default().fg(Color::Red))),
         Line::from(Span::styled(task_info, Style::default().fg(Color::White))),
+        Line::from(""),
         Line::from(Span::styled(
-            " y: yes  n: cancel",
+            "  y: yes    n: cancel",
             Style::default().fg(Color::DarkGray),
         )),
     ])
     .block(
         Block::default()
-            .title(" Confirm ")
+            .title(" Confirm Kill ")
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Red)),
     );
