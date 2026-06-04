@@ -77,8 +77,7 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_a
                 )),
             ]
         };
-        let msg = Paragraph::new(empty_msg)
-            .block(Block::default().borders(Borders::NONE));
+        let msg = Paragraph::new(empty_msg).block(Block::default().borders(Borders::NONE));
         f.render_widget(msg, area);
         return;
     }
@@ -297,7 +296,10 @@ fn draw_footer(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
     let mut status_parts: Vec<Span> = Vec::new();
 
     if let Some(ref msg) = app.status_message {
-        status_parts.push(Span::styled(msg.clone(), Style::default().fg(Color::Yellow)));
+        status_parts.push(Span::styled(
+            msg.clone(),
+            Style::default().fg(Color::Yellow),
+        ));
         status_parts.push(Span::raw("  "));
     }
 
@@ -316,8 +318,8 @@ fn draw_footer(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
 
     let status_line = Line::from(status_parts);
 
-    let footer = Paragraph::new(vec![mode_line, status_line])
-        .block(Block::default().borders(Borders::TOP));
+    let footer =
+        Paragraph::new(vec![mode_line, status_line]).block(Block::default().borders(Borders::TOP));
     f.render_widget(footer, area);
 }
 
@@ -400,8 +402,8 @@ Running: {}",
         Line::from(""),
         Line::from(Span::styled(
             "  y: yes    n: cancel",
-            Style::default().fg(Color::DarkGray)),
-        ),
+            Style::default().fg(Color::DarkGray),
+        )),
     ])
     .block(
         Block::default()
