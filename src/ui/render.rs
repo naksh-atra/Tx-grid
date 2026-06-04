@@ -55,12 +55,29 @@ fn draw_header(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
 fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_active: bool) {
     if app.filtered_indices.is_empty() {
         let empty_msg = if app.tasks.is_empty() {
-            "No panes found. Press q to quit."
+            vec![
+                Line::from(Span::styled(
+                    "No panes found.",
+                    Style::default().fg(Color::DarkGray),
+                )),
+                Line::from(Span::styled(
+                    "Create some panes in tmux first, then press q to quit.",
+                    Style::default().fg(Color::DarkGray),
+                )),
+            ]
         } else {
-            "No tasks match the filter. Press Esc to clear filter."
+            vec![
+                Line::from(Span::styled(
+                    format!("No tasks match the filter: \"{}\"", app.filter_text),
+                    Style::default().fg(Color::DarkGray),
+                )),
+                Line::from(Span::styled(
+                    "Press Esc to clear the filter.",
+                    Style::default().fg(Color::DarkGray),
+                )),
+            ]
         };
         let msg = Paragraph::new(empty_msg)
-            .style(Style::default().fg(Color::DarkGray))
             .block(Block::default().borders(Borders::NONE));
         f.render_widget(msg, area);
         return;
@@ -215,7 +232,8 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_a
 }
 
 fn draw_footer(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
-    let content = match app.mode {
+    // Build a two-line footer: mode-specific hints on top, global info on bottom
+    let mode_line = match app.mode {
         AppMode::Filter => Line::from(vec![
             Span::styled(
                 " Filter: ",
@@ -265,19 +283,41 @@ fn draw_footer(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
         }
         AppMode::Normal => {
             let help = " j/k: move | Enter: jump | x: kill | r: rename | n: notes | /: filter | s: sort | q: quit ";
-            let status = app
-                .status_message
-                .as_ref()
-                .map(|s| format!(" | {}", s))
-                .unwrap_or_default();
-            Line::from(vec![
-                Span::styled(help, Style::default().fg(Color::DarkGray)),
-                Span::styled(status, Style::default().fg(Color::Yellow)),
-            ])
+            Line::from(Span::styled(help, Style::default().fg(Color::DarkGray)))
         }
     };
 
-    let footer = Paragraph::new(content).block(Block::default().borders(Borders::TOP));
+    // Second line: status message + filter indicator + sort mode
+    let sort_label = match app.sort_order {
+        crate::ui::state::SortOrder::Runtime => "runtime",
+        crate::ui::state::SortOrder::Session => "session",
+        crate::ui::state::SortOrder::State => "state",
+    };
+
+    let mut status_parts: Vec<Span> = Vec::new();
+
+    if let Some(ref msg) = app.status_message {
+        status_parts.push(Span::styled(msg.clone(), Style::default().fg(Color::Yellow)));
+        status_parts.push(Span::raw("  "));
+    }
+
+    if !app.filter_text.is_empty() {
+        status_parts.push(Span::styled(
+            format!("filter: \"{}\"", app.filter_text),
+            Style::default().fg(Color::Cyan),
+        ));
+        status_parts.push(Span::raw("  "));
+    }
+
+    status_parts.push(Span::styled(
+        format!("sort: {}  [s] cycle", sort_label),
+        Style::default().fg(Color::DarkGray),
+    ));
+
+    let status_line = Line::from(status_parts);
+
+    let footer = Paragraph::new(vec![mode_line, status_line])
+        .block(Block::default().borders(Borders::TOP));
     f.render_widget(footer, area);
 }
 
@@ -335,24 +375,37 @@ fn draw_notes_panel(f: &mut Frame, area: ratatui::layout::Rect, app: &App) {
 }
 
 fn draw_confirm_dialog(f: &mut Frame, app: &App) {
-    let area = centered_rect(50, 3, f.area());
+    // Centered modal overlay
+    let area = centered_rect(60, 7, f.area());
     f.render_widget(Clear, area);
 
     let task_info = app
         .selected_task()
-        .map(|t| format!("Kill pane {} ({})?", t.pane.locator(), t.command_display))
+        .map(|t| {
+            format!(
+                "Kill pane {} ({})
+Running: {}",
+                t.pane.locator(),
+                t.command_display,
+                t.runtime
+                    .map(format_runtime)
+                    .unwrap_or_else(|| "—".to_string())
+            )
+        })
         .unwrap_or_else(|| "Kill selected pane?".to_string());
 
     let dialog = Paragraph::new(vec![
+        Line::from(Span::styled("⚠ ", Style::default().fg(Color::Red))),
         Line::from(Span::styled(task_info, Style::default().fg(Color::White))),
+        Line::from(""),
         Line::from(Span::styled(
-            " y: yes  n: cancel",
-            Style::default().fg(Color::DarkGray),
-        )),
+            "  y: yes    n: cancel",
+            Style::default().fg(Color::DarkGray)),
+        ),
     ])
     .block(
         Block::default()
-            .title(" Confirm ")
+            .title(" Confirm Kill ")
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Red)),
     );
