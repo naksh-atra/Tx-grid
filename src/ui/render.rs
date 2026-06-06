@@ -198,9 +198,21 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_a
     }
 
     // Use flexible constraints so window headers can expand
+    // Slice rows to only show the visible portion based on scroll_offset
+    // Reserve 1 line for the table header
+    let visible_height = area.height.saturating_sub(1) as usize;
+    let total_rows = rows.len();
+    let scroll_offset = app.scroll_offset;
+    let end = (scroll_offset + visible_height).min(total_rows);
+    let visible_rows = if scroll_offset < total_rows {
+        rows[scroll_offset..end].to_vec()
+    } else {
+        rows
+    };
+
     let table = if notes_active {
         Table::new(
-            rows,
+            visible_rows,
             [
                 ratatui::layout::Constraint::Percentage(30),
                 ratatui::layout::Constraint::Percentage(20),
@@ -209,7 +221,7 @@ fn draw_task_list(f: &mut Frame, area: ratatui::layout::Rect, app: &App, notes_a
         )
     } else {
         Table::new(
-            rows,
+            visible_rows,
             [
                 ratatui::layout::Constraint::Percentage(25),
                 ratatui::layout::Constraint::Percentage(15),

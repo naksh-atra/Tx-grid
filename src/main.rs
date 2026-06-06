@@ -230,7 +230,7 @@ fn handle_key(
                 app.move_down(20);
             }
             crossterm::event::KeyCode::Char('k') | crossterm::event::KeyCode::Up => {
-                app.move_up();
+                app.move_up(20);
             }
             crossterm::event::KeyCode::Char('g') | crossterm::event::KeyCode::Home => {
                 app.move_to_first();

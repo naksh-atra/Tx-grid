@@ -113,9 +113,12 @@ impl App {
         }
     }
 
-    pub fn move_up(&mut self) {
+    pub fn move_up(&mut self, max_visible: usize) {
         if self.selection > 0 {
             self.selection -= 1;
+            if self.selection < self.scroll_offset {
+                self.scroll_offset = self.selection;
+            }
         }
     }
 
@@ -387,8 +390,42 @@ mod tests {
         assert_eq!(app.selection, 2);
         app.move_down(10);
         assert_eq!(app.selection, 2);
-        app.move_up();
+        app.move_up(10);
         assert_eq!(app.selection, 1);
+    }
+
+    #[test]
+    fn test_scroll_down_and_up() {
+        // Simulate many tasks with small visible area
+        let mut tasks = Vec::new();
+        for i in 0..30 {
+            tasks.push(make_task(
+                &format!("%{}", i),
+                "main",
+                (i * 100) as u64,
+                TaskState::Running,
+            ));
+        }
+        let mut app = App::new(tasks);
+        app.apply_filter_and_sort();
+        assert_eq!(app.selection, 0);
+        assert_eq!(app.scroll_offset, 0);
+
+        // Scroll down past visible area (max_visible=5)
+        for _ in 0..6 {
+            app.move_down(5);
+        }
+        // Selection should be >= 5, scroll_offset should have moved
+        assert!(app.selection >= 5);
+        assert!(app.scroll_offset > 0);
+
+        // Now scroll back up
+        for _ in 0..6 {
+            app.move_up(5);
+        }
+        // Should be back at top
+        assert_eq!(app.selection, 0);
+        assert_eq!(app.scroll_offset, 0);
     }
 
     #[test]
